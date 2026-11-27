@@ -36,6 +36,18 @@ run "tiny office"                          node office-life/js/game.js
 run "pull the pin: levels"                 node pull-the-pin/js/levels.js
 run "pull the pin: game"                   node pull-the-pin/js/game.js
 run "ultimate cooking"                     node ultimate-cooking/js/game.js
+run "dopamine: content tables"            node dopamine-factory/js/content.js
+run "dopamine: core economy"               node dopamine-factory/js/core.js
+run "dopamine: board logic"               node dopamine-factory/js/board.js
+run "dopamine: bonus wheel"               node dopamine-factory/js/wheel.js
+run "dopamine: quests"                     node dopamine-factory/js/quests.js
+run "dopamine: audio"                     node dopamine-factory/js/audio.js
+run "dopamine: fx pools"                  node dopamine-factory/js/fx.js
+run "dopamine: render3d helpers"          node dopamine-factory/js/render3d.js
+run "dopamine: input gestures"            node dopamine-factory/js/input.js
+run "dopamine: ui math"                   node dopamine-factory/js/ui.js
+run "dopamine: game bus"                  node dopamine-factory/js/game.js
+run "dopamine: integration bot"            node dopamine-factory/test/integration.js
 echo "-------------------------------------------"
 echo "TOTAL PASS CHECKS: ${total_pass}"
 exit $overall

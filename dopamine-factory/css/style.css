@@ -1,0 +1,24 @@
+/* DOPAMINE FACTORY — shell styles. Modules own their own DOM + classes;
+   this file only lays out the frame: portrait-first column. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: 'Courier New', monospace;
+  background: radial-gradient(ellipse 90% 60% at 50% -10%, #1b1440 0%, #0a0718 55%, #050310 100%);
+  color: #e8e8f0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+#hud-top { position: fixed; top: 0; left: 0; right: 0; z-index: 30; pointer-events: none; }
+#hud-top > * { pointer-events: auto; }
+#stage { flex: 1; position: relative; touch-action: none; }
+#stage canvas { display: block; }
+#quests { position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; pointer-events: none; }
+#quests > * { pointer-events: auto; }
+#modal-root { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+#modal-root > * { pointer-events: auto; }
+#labels { position: fixed; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }
