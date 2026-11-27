@@ -724,6 +724,22 @@
       ok(r.failed, 'level ' + (wr[0] + 1) + ' wrong order [' + wr[1].join(',') + '] ends in lava fail');
     });
 
+    /* ---- touch control tests: finger taps on pins ---- */
+    const tw = createWorld({ pins: [{ x: 60, y: 200, len: 240 }, { x: 60, y: 320, len: 240 }],
+      walls: [], heroX: 2000, spheres: [] });
+    Game.world = tw;
+    ok(pinAt(60 + 40, 200) === 0, 'touch: finger tap on pin 0 → hit');
+    ok(pinAt(60 + 40, 320) === 1, 'touch: finger tap on pin 1 → hit');
+    ok(pinAt(60 + 40, 140) === -1, 'touch: tap far above pins → miss');
+    ok(pinAt(60 - 20, 200) === 0, 'touch: finger slightly left of pin tip still counts');
+    ok(pinAt(60 + 240 + 30, 200) === 0, 'touch: finger at pin tail within tolerance counts');
+    tw.pins[0].pulled = true;
+    ok(pinAt(60 + 40, 200) === -1, 'touch: pulled pin no longer hittable');
+    try { pullPin(1); } catch (e) { /* audio may be absent headless */ }
+    ok(tw.pins[1].pulled && tw.pins[1].pullT === 0, 'touch: pullPin marks pin pulled');
+    ok(pinAt(60 + 40, 320) === -1, 'touch: pulled pin ignored by hit-test');
+    Game.world = null;
+
     if (bad) { console.error(bad + ' TESTS FAILED'); process.exit(1); }
     console.log('ALL TESTS PASSED');
   }
