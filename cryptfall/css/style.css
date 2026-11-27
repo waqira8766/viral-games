@@ -1,0 +1,19 @@
+/* CRYPTFALL — style */
+html, body {
+  margin: 0; padding: 0;
+  background: #060508;
+  overflow: hidden;
+  height: 100%;
+}
+canvas#game {
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+html, body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+canvas#game { touch-action: none; }

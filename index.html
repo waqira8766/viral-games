@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VIRAL ARCADE — browser games</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0812;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(125,232,255,0.13), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(208,168,255,0.10), transparent),
+      linear-gradient(transparent 97px, rgba(255,255,255,0.03) 97px),
+      linear-gradient(90deg, transparent 97px, rgba(255,255,255,0.03) 97px);
+    background-size: 100% 100%, 100% 100%, 100px 100px, 100px 100px;
+    color: #e8e8f0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 48px 20px; min-height: 100%;
+  }
+  h1 {
+    font-size: clamp(30px, 6vw, 56px);
+    letter-spacing: 6px;
+    background: linear-gradient(180deg, #e8e8ff, #7de8ff);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(125,232,255,0.25);
+    margin-bottom: 6px;
+  }
+  .sub { color: #8890aa; letter-spacing: 3px; font-size: 14px; margin-bottom: 44px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 22px; width: 100%; max-width: 1080px;
+  }
+  a.card {
+    display: block; text-decoration: none;
+    background: rgba(16,14,26,0.85);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 16px;
+    padding: 26px 24px 22px;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    position: relative; overflow: hidden;
+  }
+  a.card:hover {
+    transform: translateY(-4px) scale(1.015);
+    border-color: rgba(125,232,255,0.45);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(125,232,255,0.12);
+  }
+  a.card::after {
+    content: '▶'; position: absolute; right: 18px; top: 20px;
+    color: #ffd94a; font-size: 15px; opacity: 0; transition: opacity .16s;
+  }
+  a.card:hover::after { opacity: 1; }
+  .emoji { font-size: 42px; margin-bottom: 12px; display: block; }
+  .name { font-size: 20px; font-weight: bold; letter-spacing: 1px; margin-bottom: 8px; }
+  .tag {
+    display: inline-block; font-size: 11px; letter-spacing: 1.5px;
+    padding: 3px 9px; border-radius: 999px; margin-bottom: 12px;
+  }
+  .desc { color: #9aa3c0; font-size: 13.5px; line-height: 1.55; }
+  .t1 { background: rgba(125,232,255,0.13); color: #7de8ff; }
+  .t2 { background: rgba(255,217,74,0.13); color: #ffd94a; }
+  .t3 { background: rgba(122,255,138,0.13); color: #7dff8a; }
+  .t4 { background: rgba(208,168,255,0.13); color: #d0a8ff; }
+  .foot { margin-top: 46px; color: #556; font-size: 12px; letter-spacing: 1px; text-align: center; line-height: 1.9; }
+</style>
+</head>
+<body>
+  <h1>VIRAL ARCADE</h1>
+  <div class="sub">— REAL GAMES. NO ADS. NO DOWNLOADS. —</div>
+  <div class="grid">
+    <a class="card" href="cryptfall/">
+      <span class="emoji">🗡️</span>
+      <div class="name">CRYPTFALL</div>
+      <span class="tag t1">ROGUELIKE</span>
+      <div class="desc">Procedural dungeons, 8+ enemy types, loot, relics, bosses every 5th floor and a Crypt King at the bottom. Death is permanent.</div>
+    </a>
+    <a class="card" href="bank-simulator/">
+      <span class="emoji">💰</span>
+      <div class="name">BANK SIMULATOR</div>
+      <span class="tag t2">HEIST TYCOON</span>
+      <div class="desc">Tap the vault, build a crew, dodge the heat — the cops are always coming. The game from the ads, but it's actually real.</div>
+    </a>
+    <a class="card" href="pull-the-pin/">
+      <span class="emoji">📌</span>
+      <div class="name">PULL THE PIN</div>
+      <span class="tag t3">PUZZLE</span>
+      <div class="desc">Gold falls, lava burns, water saves. Twelve handcrafted levels of "wait, which pin first?" physics puzzles.</div>
+    </a>
+    <a class="card" href="office-life/">
+      <span class="emoji">🏢</span>
+      <div class="name">TINY OFFICE</div>
+      <span class="tag t4">CUTE 3D IDLE</span>
+      <div class="desc">Cute little guys typing their hearts out — intern to CEO, one promotion at a time. Coffee included. Built with three.js.</div>
+    </a>
+  </div>
+  <div class="foot">
+    everything runs in your browser · no ads inside the games · that's the point<br>
+    made with the expensive model · 2026
+  </div>
+</body>
+</html>

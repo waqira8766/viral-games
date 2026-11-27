@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PULL THE PIN — Puzzle Rescue</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============ HOME SCREEN ============ -->
+  <div id="home" class="screen">
+    <div class="home-card">
+      <div class="logo">🛡️</div>
+      <h1 class="title"><span>PULL</span> <span>THE</span> <span>PIN</span></h1>
+      <p class="tagline">Save the gold. Dodge the lava. Think <b>before</b> you pull.</p>
+      <div id="homeStars" class="stars-total">⭐ 0 / 36</div>
+      <button id="btnPlay" class="btn play">▶&nbsp;PLAY</button>
+      <p class="howto">💡 Water beats lava &nbsp;·&nbsp; Gold must reach your knight &nbsp;·&nbsp; Order matters!</p>
+    </div>
+  </div>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <div id="game" class="screen" style="display:none">
+    <div id="topbar"><div id="pills"></div></div>
+
+    <div id="hud">
+      <div class="hud-left"><span id="lv">LEVEL 1/12</span><span id="name">First Drop</span></div>
+      <div id="gold">🪙 0 / 1</div>
+      <div class="hud-right">
+        <button id="btnRetry" class="btn mini" title="Retry level (R)">🔁</button>
+        <button id="btnMute"  class="btn mini" title="Mute (M)">🔊</button>
+        <button id="btnHome"  class="btn mini" title="Home">🏠</button>
+      </div>
+    </div>
+
+    <div id="hintbar">💡</div>
+
+    <div id="stage">
+      <canvas id="cv" width="400" height="640"></canvas>
+
+      <!-- FAIL OVERLAY -->
+      <div id="failOv" class="ov">
+        <div class="ov-card">
+          <div class="oops">OOPS! 🔥</div>
+          <p class="ov-sub">The lava got your knight!</p>
+          <button id="btnRetry2" class="btn retry">🔁 RETRY</button>
+          <div id="cd" class="cd">Auto-retry in 3…</div>
+        </div>
+      </div>
+
+      <!-- CLEAR OVERLAY -->
+      <div id="clearOv" class="ov">
+        <div class="ov-card">
+          <div id="clearTitle" class="cleartitle">LEVEL CLEAR!</div>
+          <div class="stars-row"><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+          <div id="clearSub" class="ov-sub">Flawless!</div>
+          <button id="btnNext" class="btn next">NEXT ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

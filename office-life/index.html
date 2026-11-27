@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#ffe9d2" />
+  <title>Tiny Office — Corporate Climb</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="ui">
+    <div id="brand">🏢 TINY OFFICE<span>corporate climb</span></div>
+
+    <div id="money-wrap">
+      <div id="money">$0</div>
+      <div id="income">+$0.00/sec</div>
+    </div>
+
+    <div id="top-right">
+      <button id="mute-btn" class="chip" title="Toggle sound">🔊</button>
+      <button id="reset-btn" class="chip" title="Reset save">🗑️</button>
+    </div>
+
+    <div id="panel" class="hidden">
+      <button id="panel-close" title="Close">✕</button>
+      <div id="p-portrait">😊</div>
+      <div id="p-name">Biscuit</div>
+      <div id="p-title">Intern · Lv 0</div>
+      <div class="bar"><div id="p-xp"></div></div>
+      <div id="p-xp-text">0 / 30 XP</div>
+      <div class="p-row"><span>💰 income</span><span id="p-income">$1.00/sec</span></div>
+      <div class="p-row"><span>☕ coffee</span><span id="p-coffee">😴 sleepy</span></div>
+      <div class="p-hint">click the floor to motivate the team!</div>
+    </div>
+
+    <div id="bottom-bar">
+      <button id="hire-btn"><span class="hire-txt">+ HIRE 😊</span><span id="hire-cost">$80</span></button>
+      <div id="upgrades">
+        <button class="up-btn" data-up="espresso">
+          <span class="up-icon">☕</span>
+          <span class="up-txt"><span class="up-name">Espresso Machine <b class="up-lvl">Lv 0</b></span><span class="up-desc">+25% global income</span></span>
+          <span class="up-cost">$100</span>
+        </button>
+        <button class="up-btn" data-up="standing">
+          <span class="up-icon">🪑</span>
+          <span class="up-txt"><span class="up-name">Standing Desks <b class="up-lvl">Lv 0</b></span><span class="up-desc">+20% global income</span></span>
+          <span class="up-cost">$150</span>
+        </button>
+        <button class="up-btn" data-up="gym">
+          <span class="up-icon">🏋️</span>
+          <span class="up-txt"><span class="up-name">Gym Membership <b class="up-lvl">Lv 0</b></span><span class="up-desc">faster walking · coffee 60s</span></span>
+          <span class="up-cost">$120</span>
+        </button>
+        <button class="up-btn" data-up="keyboard">
+          <span class="up-icon">⌨️</span>
+          <span class="up-txt"><span class="up-name">Golden Keyboard <b class="up-lvl">Lv 0</b></span><span class="up-desc">click bonus ×2</span></span>
+          <span class="up-cost">$200</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="toast">👋 click a lil guy to check on them · click the floor to motivate!</div>
+
+    <div id="labels"></div>
+
+    <div id="modal" class="hidden">
+      <div id="modal-card">
+        <div id="modal-emoji">💤</div>
+        <h2>WHILE YOU WERE GONE</h2>
+        <p id="modal-text">The team kept hustling…</p>
+        <div id="modal-amount">+$0</div>
+        <button id="claim-btn">CLAIM IT 💰</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

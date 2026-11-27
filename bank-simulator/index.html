@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#3b0764">
+  <title>BANK SIMULATOR — Heist Tycoon</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- drifting background emojis (built by js) -->
+  <div id="bg-emoji-layer" aria-hidden="true"></div>
+
+  <header id="hud">
+    <h1 class="game-title">BANK SIMULATOR</h1>
+    <div class="game-subtitle">Heist Tycoon</div>
+    <div id="cash-counter" class="cash-counter">$0</div>
+    <div id="cps-chip" class="cps-chip">+$0/s</div>
+  </header>
+
+  <!-- heat / tension bar -->
+  <div id="heat-wrap">
+    <span class="heat-label">🔥 HEAT</span>
+    <div id="heat-bar"><div id="heat-fill"></div></div>
+    <span id="heat-pct">0%</span>
+  </div>
+
+  <main id="layout">
+    <!-- crew: passive income -->
+    <section id="crew-panel" class="glass panel">
+      <h2 class="panel-title">🕵️ YOUR CREW</h2>
+      <div id="crew-list"></div>
+    </section>
+
+    <!-- the vault: core tap loop -->
+    <section id="vault-area">
+      <div id="vault" role="button" tabindex="0" aria-label="Tap the vault to earn cash">
+        <div class="vault-door">
+          <div class="vault-dial"></div>
+          <div class="vault-center">💰</div>
+        </div>
+      </div>
+      <div id="tap-hint">👆 TAP THE VAULT!</div>
+      <div id="tap-value-label">💵 TAP VALUE: <b id="tap-value">$5</b></div>
+      <button id="prestige-btn" class="prestige-btn" type="button" disabled>🌆 MOVE TO BIGGER CITY</button>
+      <div id="prestige-hint" class="prestige-hint"></div>
+    </section>
+
+    <!-- upgrades + stats -->
+    <section id="right-col">
+      <div id="drill-panel" class="glass panel">
+        <h2 class="panel-title">🛠️ DRILL UPGRADES</h2>
+        <div id="drill-list"></div>
+      </div>
+      <div id="stats-panel" class="glass panel">
+        <h2 class="panel-title">📊 STATS</h2>
+        <div id="stats-list"></div>
+        <button id="reset-btn" class="reset-btn" type="button">🔄 RESET SAVE</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- money particles + floating +$ text layer -->
+  <div id="fx-layer" aria-hidden="true"></div>
+
+  <!-- achievement toasts (bottom-left) -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- RAID modal -->
+  <div id="raid-modal" class="modal raid hidden">
+    <div class="modal-card">
+      <h2 class="raid-title">🚔 COPS INCOMING!</h2>
+      <p class="raid-sub">TAP TO ESCAPE!</p>
+      <div id="escape-bar"><div id="escape-fill"></div></div>
+      <div id="raid-timer" class="raid-timer">5.0s</div>
+    </div>
+  </div>
+
+  <!-- offline earnings modal -->
+  <div id="offline-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>WHILE YOU WERE GONE 💤</h2>
+      <p id="offline-amount" class="offline-amount">+$0</p>
+      <button id="offline-close" class="big-btn" type="button">NICE! 🤑</button>
+    </div>
+  </div>
+
+  <!-- loot chest modal -->
+  <div id="loot-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2>📦 LOOT CHEST!</h2>
+      <p id="loot-amount" class="offline-amount">+$0</p>
+      <button id="loot-close" class="big-btn" type="button">SWEET! 🎉</button>
+    </div>
+  </div>
+
+  <!-- fullscreen celebration flash -->
+  <div id="flash" aria-hidden="true"></div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
