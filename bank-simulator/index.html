@@ -12,6 +12,9 @@
   <!-- drifting background emojis (built by js) -->
   <div id="bg-emoji-layer" aria-hidden="true"></div>
 
+  <!-- 3D vault stage (three.js) — pointer-events: none, taps stay on #vault -->
+  <canvas id="vault3d" aria-hidden="true"></canvas>
+
   <header id="hud">
     <h1 class="game-title">BANK SIMULATOR</h1>
     <div class="game-subtitle">Heist Tycoon</div>
@@ -98,6 +101,11 @@
   <!-- fullscreen celebration flash -->
   <div id="flash" aria-hidden="true"></div>
 
+  <!-- 3D vault stage: three.js core, then shared mobile controls, then the
+       DOM game (whose tap router is THE input path), then the 3D scene layer -->
+  <script src="../shared/vendor/three.min.js"></script>
+  <script src="../shared/mobile-controls.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/vault3d.js"></script>
 </body>
 </html>

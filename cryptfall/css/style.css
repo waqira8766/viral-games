@@ -5,15 +5,30 @@ html, body {
   overflow: hidden;
   height: 100%;
 }
+/* 3D world canvas: bottom layer, never takes pointer events — all input
+ * (mouse + touch) routes through the HUD canvas above it, which keeps the
+ * CF.Input bindings from engine.js intact. Mobile SVG controls (js/touch.js)
+ * sit at z-index 60, above both canvases. */
+canvas#game3d {
+  display: block;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 0;
+  pointer-events: none;
+  touch-action: none;
+}
+/* 2D canvas: HUD + overlays + input surface */
 canvas#game {
   display: block;
-  margin: 0 auto;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 1;
   image-rendering: pixelated;
   cursor: crosshair;
+  touch-action: none;
 }
 html, body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-canvas#game { touch-action: none; }

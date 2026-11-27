@@ -348,3 +348,51 @@ button,
   .modal-card { padding: 22px 18px; }
   #toast-container { max-width: calc(100vw - 28px); }
 }
+
+/* ============================================================
+   3D VAULT STAGE (three.js canvas — js/vault3d.js)
+   Sits behind/around the DOM UI: large + centered on desktop,
+   fills the top half above the buttons on mobile. It never
+   intercepts pointers — the DOM #vault hit area stays THE input.
+   ============================================================ */
+#vault3d {
+  position: fixed;
+  left: 50%; top: 50%;
+  width: min(96vw, 1080px);
+  height: min(92vh, 780px);
+  transform: translate(-50%, -50%);
+  z-index: 1;                 /* above the emoji layer (0), below the UI (2) */
+  pointer-events: none;       /* taps pass through to #vault via the tap router */
+  opacity: 0;                 /* fades in when the scene has rendered (js adds .on) */
+  transition: opacity .9s ease;
+}
+#vault3d.on { opacity: 1; }
+#vault3d.off { display: none; } /* no WebGL → the DOM game plays on untouched */
+
+/* raid modal lets the 3D strobes + light bar show through; softer,
+   eased pulse replaces the old hard 2.5/s background flash */
+#raid-modal {
+  background: rgba(120, 8, 12, .62);
+  animation: raidPulse3D 1.4s ease-in-out infinite;
+}
+@keyframes raidPulse3D {
+  0%, 100% { background: rgba(120, 8, 12, .62); }
+  50%      { background: rgba(150, 12, 16, .5); }
+}
+#raid-modal .modal-card { background: rgba(30, 12, 56, .96); }
+
+/* mobile: the 3D vault owns the top half, buttons stay below */
+@media (max-width: 600px) {
+  #vault3d {
+    left: 0; top: 0; transform: none;
+    width: 100vw; height: 52vh;
+  }
+}
+
+/* floating MC buttons (SVG from shared/mobile-controls.js) — inline-positioned
+   by js; only their stacking lives here: above the 3D canvas, below modals.
+   The raid button rides above the raid event modal (z 200) so thumbs can
+   actually reach it, and is unmounted before any result modal can appear. */
+@media (prefers-reduced-motion: reduce) {
+  #vault3d { transition: none; }
+}

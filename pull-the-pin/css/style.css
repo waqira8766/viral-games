@@ -148,3 +148,16 @@ body {
 @keyframes starpop { from { transform: scale(0) rotate(-120deg); } }
 .ov-sub { margin-top: 6px; color: var(--dim); font-size: 15px; font-weight: 600; }
 .cd { margin-top: 10px; font-size: 12px; color: var(--dim); letter-spacing: .5px; }
+
+/* ---------------- mobile touch cluster (shared MC, touch devices only) ----------------
+   Fixed bottom-right, below the stage flow: can never collide with the top
+   pills / HUD. Only the buttons themselves catch pointer events. */
+#mcCluster {
+  position: fixed; right: 10px; bottom: 10px; z-index: 50;
+  display: flex; gap: 8px; pointer-events: none;
+}
+#mcCluster svg { pointer-events: auto; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .55)); }
+@media (max-width: 390px) {
+  #mcCluster { right: 6px; bottom: 6px; gap: 6px; }
+  #mcCluster svg { width: 46px; height: 46px; }
+}

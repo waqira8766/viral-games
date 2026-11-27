@@ -99,8 +99,7 @@ button { font-family: inherit; }
   0% { transform: scale(1); }
   35% { transform: scale(1.22); }
   100% { transform: scale(1); }
-}
-#income {
+}#income {
   font-size: 13px;
   font-weight: 800;
   color: var(--ink-soft);
@@ -142,7 +141,7 @@ button { font-family: inherit; }
   backdrop-filter: blur(8px);
   border-radius: 22px;
   box-shadow: 0 10px 30px rgba(91, 74, 68, 0.25);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s;
+  transition: transform 0.42s cubic-bezier(0.22, 1.61, 0.36, 1), opacity 0.26s ease;
 }
 #panel.hidden {
   transform: translateY(-50%) translateX(130%);
@@ -258,8 +257,9 @@ button { font-family: inherit; }
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 #hire-btn:hover:not(.disabled) { transform: translateY(-3px) scale(1.03); }
-#hire-btn:active:not(.disabled) { transform: scale(0.96); box-shadow: 0 2px 0 rgba(70, 181, 108, 0.35); }
+#hire-btn:active:not(.disabled) { transform: translateY(4px) scale(0.97); box-shadow: 0 1px 0 rgba(70, 181, 108, 0.35); }
 #hire-cost {
+  display: inline-block;
   background: rgba(255, 255, 255, 0.28);
   border-radius: 10px;
   padding: 2px 8px;
@@ -281,7 +281,7 @@ button { font-family: inherit; }
   transition: transform 0.12s ease;
 }
 .up-btn:hover:not(.disabled) { transform: translateY(-3px); }
-.up-btn:active:not(.disabled) { transform: scale(0.96); }
+.up-btn:active:not(.disabled) { transform: translateY(3px) scale(0.97); box-shadow: 0 1px 0 rgba(91, 74, 68, 0.12); }
 .up-icon { font-size: 20px; }
 .up-txt { display: block; }
 .up-name { display: block; font-size: 12px; font-weight: 900; }
@@ -294,6 +294,17 @@ button { font-family: inherit; }
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* coin badges gently pulse while the purchase is affordable */
+@keyframes cost-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(70, 160, 92, 0); }
+  50% { transform: scale(1.12); box-shadow: 0 0 0 5px rgba(70, 160, 92, 0.18); }
+}
+#hire-btn.afford #hire-cost,
+.up-btn.afford .up-cost {
+  display: inline-block;
+  animation: cost-pulse 1.5s ease-in-out infinite;
 }
 
 /* ---------------- toast ---------------- */
@@ -342,6 +353,25 @@ button { font-family: inherit; }
 .flabel.green { color: var(--money); }
 .flabel.pink { color: var(--pink); font-size: 19px; }
 .flabel.blue { color: #5aa9e6; }
+.flabel.zzz { color: #8fa7e8; font-size: 17px; }
+
+/* ---------------- MC touch cluster (bottom-right, touch devices) ---------------- */
+#mc-cluster {
+  position: absolute;
+  right: 12px;
+  bottom: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 8;
+  pointer-events: none; /* the SVGs opt back in */
+}
+#mc-cluster svg {
+  display: block;
+  pointer-events: auto;
+  filter: drop-shadow(0 4px 10px rgba(46, 38, 58, 0.25));
+}
+#mc-cluster.panel-open { bottom: 320px; } /* swings clear of the guy panel */
 
 /* ---------------- offline modal ---------------- */
 #modal {
@@ -397,7 +427,7 @@ button { font-family: inherit; }
   transition: transform 0.12s ease;
 }
 #claim-btn:hover { transform: translateY(-2px) scale(1.04); }
-#claim-btn:active { transform: scale(0.94); }
+#claim-btn:active { transform: translateY(3px) scale(0.96); box-shadow: 0 1px 0 rgba(255, 111, 145, 0.35); }
 
 /* ---------------- phones (<700px, fits a 390px viewport) ---------------- */
 @media (max-width: 700px) {
@@ -435,4 +465,7 @@ button { font-family: inherit; }
   #modal-card { padding: 22px 24px; }
   #modal-amount { font-size: 30px; }
   #claim-btn { min-height: 44px; }
+  /* MC cluster: above the (wrapping) button bar, and above the panel sheet when open */
+  #mc-cluster { right: 8px; bottom: 168px; }
+  #mc-cluster.panel-open { bottom: 356px; }
 }

@@ -261,7 +261,15 @@ CF.Game = {
     CF.Camera.setBounds(d.width * T, d.height * T);
     CF.Camera.snapTo(this.player.x, this.player.y);
     this.explored = new Set();
-    this.buildFloorCanvas(d);
+    /* renderer dispatch: 3D owns the world geometry; 2D keeps its bitmap.
+     * In node (no DOM) CF.Render3D is dormant, so this is a no-op there. */
+    if (CF.Render3D && CF.Render3D.active) {
+      this.floorCanvas = null;
+      try { CF.Render3D.buildFloor(d); }
+      catch (err) { CF.Render3D.disable(); this.buildFloorCanvas(d); }
+    } else {
+      this.buildFloorCanvas(d);
+    }
 
     var isBossFloor = (f % 5 === 0);
     var isFinal = (f === this.FINAL_FLOOR);
@@ -707,10 +715,11 @@ CF.Game = {
   hasSave: function () { return !!this.loadSave(); },
 
   /* ================= RENDER ================= */
-  _render: function (ctx) {
+  _render: function (ctx, dt) {
     var W = CF.Engine.W, H = CF.Engine.H;
-    ctx.fillStyle = '#060508';
-    ctx.fillRect(0, 0, W, H);
+    var r3 = (CF.Render3D && CF.Render3D.active) ? CF.Render3D : null;
+    if (r3) ctx.clearRect(0, 0, W, H);   /* 2D canvas = transparent HUD overlay over #game3d */
+    else { ctx.fillStyle = '#060508'; ctx.fillRect(0, 0, W, H); }
 
     if (this.state === 'title' || this.state === 'help' || !this.dungeon || !this.player) {
       if (this.state === 'help') CF.UI.drawHelp(ctx);
@@ -719,41 +728,48 @@ CF.Game = {
     }
 
     /* ---- world ---- */
-    ctx.save();
-    CF.Camera.apply(ctx);
-    var cam = CF.Camera;
-    if (this.floorCanvas) {
-      var sx = CF.clamp(cam.x + cam.shakeX, 0, Math.max(0, this.floorCanvas.width - W));
-      var sy = CF.clamp(cam.y + cam.shakeY, 0, Math.max(0, this.floorCanvas.height - H));
-      ctx.drawImage(this.floorCanvas, sx, sy, W, H, sx, sy, W, H);
+    if (r3) {
+      /* renderer swap: CF.Render3D draws the world in 3D, exposes the
+       * projected float-text list for this HUD canvas to draw on top */
+      r3.frame(this, dt);
+      r3.drawProjectedFloats(ctx, this);
+    } else {
+      ctx.save();
+      CF.Camera.apply(ctx);
+      var cam = CF.Camera;
+      if (this.floorCanvas) {
+        var sx = CF.clamp(cam.x + cam.shakeX, 0, Math.max(0, this.floorCanvas.width - W));
+        var sy = CF.clamp(cam.y + cam.shakeY, 0, Math.max(0, this.floorCanvas.height - H));
+        ctx.drawImage(this.floorCanvas, sx, sy, W, H, sx, sy, W, H);
+      }
+      /* stairs pulse */
+      var T = CF.TILE;
+      var ex = this.dungeon.exit.x * T + T / 2, ey = this.dungeon.exit.y * T + T / 2;
+      var pulse = 0.25 + Math.sin(CF.Engine.time * 4) * 0.15;
+      ctx.fillStyle = 'rgba(125,232,255,' + pulse + ')';
+      ctx.beginPath(); ctx.arc(ex, ey, 22, 0, Math.PI * 2); ctx.fill();
+
+      var i;
+      for (i = 0; i < this.chests.length; i++) this.chests[i].render(ctx);
+      for (i = 0; i < this.pickups.length; i++) this.pickups[i].render(ctx);
+      for (i = 0; i < this.enemies.length; i++) this.enemies[i].render(ctx, this);
+      for (i = 0; i < this.projectiles.length; i++) this.projectiles[i].render(ctx);
+      this.player.render(ctx, this);
+      CF.Particles.render(ctx);
+      CF.FloatText.render(ctx);
+      ctx.restore();
+
+      /* ---- lighting (screen space) ---- */
+      var pp = CF.Camera.worldToScreen(this.player.x, this.player.y);
+      var flicker = Math.sin(CF.Engine.time * 7) * 6 + Math.sin(CF.Engine.time * 13) * 3;
+      var outer = (this.state === 'dead') ? 140 : 460 + flicker;
+      var vg = ctx.createRadialGradient(pp.x, pp.y, 90, pp.x, pp.y, outer);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(0.6, 'rgba(0,0,0,0.35)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.92)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
     }
-    /* stairs pulse */
-    var T = CF.TILE;
-    var ex = this.dungeon.exit.x * T + T / 2, ey = this.dungeon.exit.y * T + T / 2;
-    var pulse = 0.25 + Math.sin(CF.Engine.time * 4) * 0.15;
-    ctx.fillStyle = 'rgba(125,232,255,' + pulse + ')';
-    ctx.beginPath(); ctx.arc(ex, ey, 22, 0, Math.PI * 2); ctx.fill();
-
-    var i;
-    for (i = 0; i < this.chests.length; i++) this.chests[i].render(ctx);
-    for (i = 0; i < this.pickups.length; i++) this.pickups[i].render(ctx);
-    for (i = 0; i < this.enemies.length; i++) this.enemies[i].render(ctx, this);
-    for (i = 0; i < this.projectiles.length; i++) this.projectiles[i].render(ctx);
-    this.player.render(ctx, this);
-    CF.Particles.render(ctx);
-    CF.FloatText.render(ctx);
-    ctx.restore();
-
-    /* ---- lighting (screen space) ---- */
-    var pp = CF.Camera.worldToScreen(this.player.x, this.player.y);
-    var flicker = Math.sin(CF.Engine.time * 7) * 6 + Math.sin(CF.Engine.time * 13) * 3;
-    var outer = (this.state === 'dead') ? 140 : 460 + flicker;
-    var vg = ctx.createRadialGradient(pp.x, pp.y, 90, pp.x, pp.y, outer);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(0.6, 'rgba(0,0,0,0.35)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.92)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, W, H);
 
     /* ---- HUD & overlays ---- */
     if (this.state === 'play' || this.state === 'paused' || this.state === 'inventory' ||

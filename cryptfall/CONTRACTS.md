@@ -56,3 +56,24 @@ Tile center in world px: `(x * 40 + 20, y * 40 + 20)`.
 - `js/entities.js` player, enemies (AI), projectiles, pickups, chests.
 - `js/ui.js` HUD, minimap, overlays: title, inventory, upgrade, shop, death, win.
 - `js/main.js` state machine, floor orchestration, save/load (localStorage).
+
+## js/render3d.js — CF.Render3D (optional 3D renderer)
+- Renderer swap only — zero game-logic changes. Loaded after `js/ui.js`,
+  before `js/main.js`; requires `../shared/vendor/three.min.js` (UMD global
+  `THREE`) and a `<canvas id="game3d">` layered UNDER the `#game` HUD canvas.
+- Dormant unless `window`, `document` and `THREE` all exist AND a WebGL
+  renderer initializes: then `CF.Render3D.available/.active === true` and the
+  game renders in 3D. Otherwise the 2D canvas renderer is used unchanged.
+- `main.js` dispatches: `_render` clears the HUD canvas (transparent) and
+  calls `CF.Render3D.frame(game, dt)` + `drawProjectedFloats(ctx, game)`;
+  `genFloor` calls `CF.Render3D.buildFloor(dungeon)` instead of
+  `buildFloorCanvas` while active. Node/headless: dormant, no-op.
+- Monkey-patches `CF.Camera.screenToWorld` (raycast mouse onto the ground
+  plane — exact desktop aim) and `CF.Camera.worldToScreen` (HUD anchoring).
+  `disable()` restores both and rebuilds the 2D floor bitmap.
+- Scale: 1 world tile = 1 three.js unit; 2D (x,y) px -> scene (x, 0, z=y).
+- Static floor/walls/doors are merged into single BufferGeometries with
+  baked vertex-color AO; entity meshes/particles/float-text are pooled
+  (zero per-frame allocation). Pure helpers are covered by
+  `test/render3d-test.js`; the browser path is exercised against real
+  three.js by `test/render3d-smoke.js`.

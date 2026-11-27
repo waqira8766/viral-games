@@ -358,6 +358,7 @@ if (typeof document !== 'undefined') {
     // ---- mutable runtime ----
     var state = null;          // the single game state
     var raid = null;           // { taps, start, done } while a raid is active
+    var raidRouter = null;      // the ONE raid tap router (modal + MC button)
     var crewEls = {};           // crewId -> { btn, cost, owned, income }
     var drillEls = [];          // index -> { btn, cost }
     var lastSaveAt = 0;
@@ -493,6 +494,81 @@ if (typeof document !== 'undefined') {
     function vaultCenter() {
       var r = vault.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    /* ---------- 3D stage bridge (PART 1 stays untouched) ----------
+       A tiny per-frame snapshot for the three.js vault, plus a tap hook.
+       onVaultTap IS the makeTapRouter handler, so every input path
+       (pointerdown / click / keyboard / MC button) drives the 3D too. */
+    BankSim.getVault3DSnapshot = function () {
+      if (!state) return null;
+      return {
+        heat: state.heat,
+        crewCount: S.totalCrew(state),
+        drillTier: state.drillTier,
+        prestige: state.prestige,
+        cps: currentCps(),
+        tapValue: S.tapValue(state),
+        raidActive: !!raid
+      };
+    };
+
+    /* ---------- MC floating buttons (one-thumb play, touch devices) ----------
+       SVG buttons from ../shared/mobile-controls.js. Both route through the
+       SAME makeTapRouter instances as the DOM vault / raid modal, so the
+       double-fire guard covers them and no second input path exists.
+       Desktop never mounts them — its path is unchanged. */
+    var IS_TOUCH = (typeof MC !== 'undefined' && MC.isTouchDevice)
+      ? MC.isTouchDevice(navigator) : false;
+    var mcVaultBtn = null, mcRaidBtn = null, mcRaidFlash = null;
+
+    function mountMcVaultButton(router) {
+      if (!IS_TOUCH || typeof MC === 'undefined' || !MC.createButton) return;
+      mcVaultBtn = MC.createButton({
+        container: document.body,
+        label: '💰',
+        size: 84,               // big thumb target (48px floor well exceeded)
+        color: '#ffd700',       // gold accent
+        id: 'mc-vault-btn',
+        onDown: function (e) { router.fast(e); } // ONE router → ONE onVaultTap
+      });
+      if (mcVaultBtn) {
+        var st = mcVaultBtn.svg.style;
+        st.position = 'fixed'; st.right = '18px'; st.bottom = '18px';
+        st.zIndex = '120'; // above the 3D canvas (z1), below result modals (z150+)
+      }
+    }
+
+    function mountMcRaidButton() {
+      if (!IS_TOUCH || typeof MC === 'undefined' || !MC.createButton) return;
+      if (mcRaidBtn || !raidRouter) return;
+      mcRaidBtn = MC.createButton({
+        container: document.body,
+        label: '🚔',
+        size: 110,
+        color: '#ff3b3b',
+        id: 'mc-raid-btn',
+        onDown: function (e) { raidRouter.fast(e); } // SAME raidTap as the modal
+      });
+      if (!mcRaidBtn) return;
+      var st = mcRaidBtn.svg.style;
+      st.position = 'fixed'; st.right = '16px'; st.top = '50%';
+      st.transform = 'translateY(-50%)';
+      st.zIndex = '210'; // above the raid event modal (z200), below #flash (z340)
+      var phase = false;
+      mcRaidFlash = setInterval(function () { // tasteful ~1.4 Hz glow pulse
+        if (!mcRaidBtn) return;
+        mcRaidBtn.svg.style.opacity = phase ? '1' : '0.8';
+        phase = !phase;
+      }, 360);
+    }
+
+    function unmountMcRaidButton() {
+      if (mcRaidFlash) { clearInterval(mcRaidFlash); mcRaidFlash = null; }
+      if (mcRaidBtn && mcRaidBtn.svg && mcRaidBtn.svg.parentNode) {
+        mcRaidBtn.svg.parentNode.removeChild(mcRaidBtn.svg);
+      }
+      mcRaidBtn = null;
     }
 
     /* ---------- achievements ---------- */
@@ -642,6 +718,7 @@ if (typeof document !== 'undefined') {
       escapeFill.style.width = '0%';
       raidTimer.textContent = '5.0s';
       raidModal.classList.remove('hidden');
+      mountMcRaidButton(); // giant 🚔 thumb button rides the same router
       playSiren();
     }
 
@@ -668,6 +745,7 @@ if (typeof document !== 'undefined') {
     }
 
     function endRaid(escaped) {
+      unmountMcRaidButton(); // gone before any result modal can appear
       raid.done = true;
       raid = null;
       raidModal.classList.add('hidden');
@@ -701,6 +779,11 @@ if (typeof document !== 'undefined') {
       shakeVault();
       popCash();
       playChaChing();
+      // 3D stage: door recoil + coin spray + light flash — same router path,
+      // so desktop, mobile, keyboard and the MC button all fire it once.
+      if (window.Vault3D && typeof window.Vault3D.onTap === 'function') {
+        window.Vault3D.onTap(value);
+      }
       if (state.heat >= C.HEAT_RAID_AT) startRaid();
       processAchievements();
       render();
@@ -744,6 +827,7 @@ if (typeof document !== 'undefined') {
       try { localStorage.removeItem(S.SAVE_KEY); } catch (e) {}
       state = S.createInitialState();
       raid = null;
+      unmountMcRaidButton(); // safety: never orphan the raid button
       toast('🔄 FRESH START', 'Save wiped. A new heist begins!');
       render();
     }
@@ -835,7 +919,7 @@ if (typeof document !== 'undefined') {
       vault.addEventListener('animationend', function () { vault.classList.remove('shake'); });
       vault.addEventListener('contextmenu', function (e) { e.preventDefault(); });
       // raid modal: same router — rapid pointerdown taps, click fallback
-      var raidRouter = S.makeTapRouter(function (e) { ensureAudio(); raidTap(e); });
+      raidRouter = S.makeTapRouter(function (e) { ensureAudio(); raidTap(e); });
       raidModal.addEventListener('pointerdown', raidRouter.fast);
       raidModal.addEventListener('click', raidRouter.click);
       if (!('PointerEvent' in window)) {
@@ -843,6 +927,8 @@ if (typeof document !== 'undefined') {
           if (e.touches && e.touches[0]) raidRouter.fast(e.touches[0]);
         }, { passive: true });
       }
+      // one-thumb play: 💰 button rides the SAME vault router (touch only)
+      mountMcVaultButton(vaultRouter);
       prestigeBtn.addEventListener('click', doPrestige);
       resetBtn.addEventListener('click', doReset);
       $('offline-close').addEventListener('click', function () {
@@ -1095,6 +1181,133 @@ if (typeof process !== 'undefined' && process.argv && process.argv[1] &&
     T('touch: css disables selection + tap highlight',
       /-webkit-tap-highlight-color:\s*transparent/.test(cssText) &&
       /user-select:\s*none/.test(cssText));
+
+    /* ---- 11. 3D vault stage: pure helpers (js/vault3d.js, no DOM/THREE) ---- */
+    var V3 = require(pathMod.join(__dirname, 'vault3d.js'));
+    T('vault3d: easeOutBack eases 0→1 with a tasteful overshoot (<1.2)',
+      close(V3.easeOutBack(0), 0) && close(V3.easeOutBack(1), 1) &&
+      (function () { var m = 0; for (var i = 0; i <= 100; i++) m = Math.max(m, V3.easeOutBack(i / 100)); return m > 1.04 && m < 1.2; })());
+    T('vault3d: recoil starts at full punch, rests at/after dur, dip stays tiny',
+      close(V3.recoilDecay(0, 320), 1) && V3.recoilDecay(320, 320) === 0 &&
+      V3.recoilDecay(900, 320) === 0 &&
+      (function () { var lo = 0, hi = 0; for (var i = 0; i <= 200; i++) { var v = V3.recoilDecay(i * 2, 320); lo = Math.min(lo, v); hi = Math.max(hi, v); } return lo >= -0.12 && hi <= 1.001; })());
+    T('vault3d: coin spray is deterministic and biased up + outward',
+      (function () {
+        var v = V3.coinVelocity(3, 12, 42);
+        return v.y > 0.9 && (Math.abs(v.x) + Math.abs(v.z)) > 0.6 &&
+          deepEqual(v, V3.coinVelocity(3, 12, 42)) &&
+          !deepEqual(v, V3.coinVelocity(4, 12, 42));
+      })());
+    T('vault3d: coin spray speed stays bounded for every coin of a burst',
+      (function () { for (var i = 0; i < 40; i++) { var v = V3.coinVelocity(i, 20, 7); var s = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z); if (s < 1 || s > 3.6) return false; } return true; })());
+    T('vault3d: coins per tap scale with value and cap at 14 (pool-safe)',
+      V3.coinSpawnCount(5) === 7 && V3.coinSpawnCount(100) >= V3.coinSpawnCount(10) &&
+      V3.coinSpawnCount(1e12) === 14 &&
+      (function () { for (var v = 1; v <= 1e12; v *= 10) { if (V3.coinSpawnCount(v) > V3.CFG.COIN_MAX) return false; } return true; })());
+    T('vault3d: strobes stay epilepsy-safe — even both lights < 3 flashes/sec',
+      V3.strobeFlashesPerSec(V3.CFG.STROBE_PERIOD_MS) < 3 &&
+      2 * V3.strobeFlashesPerSec(V3.CFG.STROBE_PERIOD_MS) < 3);
+    T('vault3d: strobe intensity is a bounded, periodic eased wave (no square flash)',
+      (function () {
+        var p = V3.CFG.STROBE_PERIOD_MS;
+        for (var t = 0; t < 5000; t += 37) { var v = V3.strobeIntensity(t, p); if (v < 0 || v > 1) return false; }
+        return close(V3.strobeIntensity(1000, p), V3.strobeIntensity(1000 + p, p), 1e-9);
+      })());
+    T('vault3d: heat danger fades in from 50% and hits 1 at the raid line',
+      V3.heatDangerLevel(0) === 0 && V3.heatDangerLevel(50) === 0 &&
+      V3.heatDangerLevel(100) === 1 && close(V3.heatDangerLevel(75), 0.5, 1e-9) &&
+      V3.heatDangerLevel(80) > V3.heatDangerLevel(60));
+    T('vault3d: camera shake wakes only past 60% heat and is bounded',
+      V3.heatShakeAmp(0) === 0 && V3.heatShakeAmp(60) === 0 &&
+      close(V3.heatShakeAmp(100), V3.CFG.SHAKE_MAX, 1e-9) &&
+      V3.heatShakeAmp(100) <= 0.05);
+    T('vault3d: prestige goldens the door gradually and never fully',
+      V3.prestigeGoldMix(0) === 0 &&
+      close(V3.prestigeGoldMix(5), V3.CFG.PRESTIGE_GOLD_MAX, 1e-12) &&
+      V3.prestigeGoldMix(50) === V3.CFG.PRESTIGE_GOLD_MAX &&
+      V3.prestigeGoldMix(2) > V3.prestigeGoldMix(1));
+    T('vault3d: crew size drives silhouette count (0→0, capped at 8)',
+      V3.crewFigureCount(0) === 0 && V3.crewFigureCount(1) === 1 &&
+      V3.crewFigureCount(6) === 2 && V3.crewFigureCount(99) === V3.CFG.CREW_FIG_MAX &&
+      V3.crewFigureCount(12) <= V3.crewFigureCount(30));
+    T('vault3d: drill evolves rusty → diamond-tipped → laser beam (beam monotone)',
+      V3.drillVisualTier(0).style === 'none' && V3.drillVisualTier(0).visible === false &&
+      V3.drillVisualTier(1).style === 'rusty' && V3.drillVisualTier(2).style === 'diamond' &&
+      V3.drillVisualTier(3).style === 'laser' &&
+      V3.drillVisualTier(2).beam === 0 && V3.drillVisualTier(3).beam > 0 &&
+      (function () { var b = -1; for (var i = 0; i <= 5; i++) { var v = V3.drillVisualTier(i).beam; if (v < b) return false; b = v; } return true; })());
+    T('vault3d: dpr caps at 1.5, floors at 1',
+      V3.clampDpr(4) === 1.5 && V3.clampDpr(1) === 1 &&
+      V3.clampDpr(0.5) === 1 && V3.clampDpr(1.25) === 1.25);
+    T('vault3d: fake AO darkens 1→0.62 monotonically from center to rim',
+      V3.aoDarken(0) === 1 && close(V3.aoDarken(1), 0.62, 1e-9) &&
+      (function () { var p = 2; for (var i = 0; i <= 10; i++) { var v = V3.aoDarken(i / 10); if (v > p || v < 0.6 || v > 1) return false; p = v; } return true; })());
+    T('vault3d: seam glow stays in [0,1] and swells with income',
+      close(V3.seamPulse(0, 0), V3.CFG.SEAM_BASE + V3.CFG.SEAM_AMP * 0.5, 1e-9) &&
+      V3.seamPulse(0, 10000) > V3.seamPulse(0, 0) &&
+      (function () { var cs = [0, 100, 10000, 1000000]; for (var t = 0; t < 4000; t += 41) { for (var k = 0; k < cs.length; k++) { var v = V3.seamPulse(t, cs[k]); if (v < 0 || v > 1) return false; } } return true; })());
+    T('vault3d: idle wheel wobble is tiny and exactly periodic',
+      (function () { var m = 0; for (var t = 0; t < 20000; t += 53) m = Math.max(m, Math.abs(V3.wobbleAngle(t))); return m <= V3.CFG.WOBBLE_AMP + 1e-9; })() &&
+      close(V3.wobbleAngle(1234), V3.wobbleAngle(1234 + V3.CFG.WOBBLE_PERIOD_MS), 1e-9));
+    T('vault3d: heat shake offset is axis-bounded and silent at 0 amp',
+      (function () { for (var t = 0; t < 9000; t += 71) { var s = V3.shakeOffset(t, 0.03); if (Math.abs(s.x) > 0.03 + 1e-9 || Math.abs(s.y) > 0.03 + 1e-9) return false; } return true; })() &&
+      V3.shakeOffset(1234, 0).x === 0 && V3.shakeOffset(1234, 0).y === 0);
+    T('vault3d: dust motes drift deterministically inside the light cone band',
+      (function () {
+        for (var i = 0; i < 70; i++) {
+          var p = V3.dustDrift(i, 1000 + i);
+          if (!deepEqual(p, V3.dustDrift(i, 1000 + i))) return false;
+          if (p.z < 0.4 || p.z >= 3.0) return false;
+          if (Math.abs(p.x) > 4 || p.y < -2 || p.y > 2.7) return false;
+        }
+        return true;
+      })());
+    T('vault3d: damp smoothing is frame-rate independent and converges',
+      V3.dampCurve(5, 5, 4, 0.016) === 5 &&
+      close(V3.dampCurve(0, 1, 4, 100), 1, 1e-9) &&
+      Math.abs(V3.dampCurve(0, 1, 4, 0.016) - 1) < 1 &&
+      V3.dampCurve(0, 1, 4, 0.016) > V3.dampCurve(0, 1, 2, 0.016));
+
+    /* ---- 12. MC floating buttons: ONE router, ONE tap, no double-fire ---- */
+    require(pathMod.join(__dirname, '..', '..', 'shared', 'mobile-controls.js'));
+    var MCg = globalThis.MC;
+    var htmlText = fsMod.readFileSync(pathMod.join(__dirname, '..', 'index.html'), 'utf8');
+    T('mc: isTouchDevice gates the floating buttons (touch yes, desktop no)',
+      MCg.isTouchDevice({ maxTouchPoints: 5 }) === true &&
+      MCg.isTouchDevice({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8)' }) === true &&
+      MCg.isTouchDevice({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)', maxTouchPoints: 0 }) === false);
+    T('mc: vault button + canvas tap ride ONE router → ONE handler (spy identity)',
+      (function () {
+        var calls = [];
+        var r = S.makeTapRouter(function (e) { calls.push(e); });
+        r.fast({ clientX: 7, clientY: 8 });   // 💰 MC button press
+        r.fast({ clientX: 9, clientY: 10 });  // canvas pointerdown
+        r.click({ clientX: 9, clientY: 10 }); // canvas click fallback
+        return calls.length === 2 && calls[0].clientX === 7 && calls[1].clientX === 9;
+      })());
+    T('mc: one synthetic tap never double-counts (stray click swallowed by the shared guard)',
+      (function () {
+        var n = 0;
+        var r = S.makeTapRouter(function () { n++; });
+        r.fast(null); r.click(null); // press + whatever click it might synthesize
+        return n === 1 && r._handled() === false;
+      })());
+    T('mc: raid button taps fill the escape bar identically to modal taps',
+      S.computeEscapeFill(10, 900) === S.computeEscapeFill(10, 900) &&
+      (S.computeEscapeFill(4, 0) - S.computeEscapeFill(3, 0)) === S.CONFIG.ESCAPE_FILL_PER_TAP);
+    T('mc: index.html wires three.js + the 3D stage + mobile-controls before game.js',
+      /shared\/vendor\/three\.min\.js/.test(htmlText) &&
+      /js\/vault3d\.js/.test(htmlText) &&
+      /id="vault3d"/.test(htmlText) &&
+      /shared\/mobile-controls\.js/.test(htmlText) &&
+      htmlText.indexOf('three.min.js') < htmlText.indexOf('mobile-controls.js') &&
+      htmlText.indexOf('mobile-controls.js') < htmlText.indexOf('js/game.js') &&
+      htmlText.indexOf('js/game.js') < htmlText.indexOf('js/vault3d.js'));
+    T('vault3d: css seats the canvas behind the UI without eating taps',
+      /#vault3d\s*\{[^}]*pointer-events:\s*none/.test(cssText) &&
+      /#vault3d\s*\{[^}]*z-index:\s*1/.test(cssText) &&
+      /#vault3d\.on\s*\{[^}]*opacity:\s*1/.test(cssText) &&
+      /52vh/.test(cssText));
 
     // ---- summary ----
     if (failures > 0) {
