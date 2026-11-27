@@ -1430,6 +1430,42 @@
       else if (e.t === 'fail') S.red = 0.55;                   // red flash; shake comes from Game.shake
     }
 
+    R3D.probe = function (what) {                              // visual triage hooks (audit only)
+      if (!R3D.ready) return null;
+      if (what === 'bgRed') S.bg.material = new THREE.MeshBasicMaterial({ color: 0xff2020, fog: false });
+      if (what === 'bgTex') S.bg.material = new THREE.MeshBasicMaterial({ map: S.tex.bg, fog: false });
+      if (what === 'bgNear') { S.bg.position.z = -100; }
+      if (what === 'bgFar') { S.bg.position.z = -420; }
+      if (what === 'spotLoud') { S.spot.material.opacity = 1; S.spot.material.color = new THREE.Color(0x66ccff); }
+      if (what === 'spotSoft') { S.spot.material.opacity = 0.42; S.spot.material.color = new THREE.Color(0xffffff); }
+      if (what === 'vigOff') { S.vig.visible = false; }
+      if (what === 'isoBg') {                                 // isolate: only the bg plane, flat red
+        S.stage.visible = false; S.dustA.pts.visible = false; S.dustB.pts.visible = false;
+        S.vig.visible = false; S.redMesh.visible = false;
+        S.sparks.pts.visible = false; S.smoke.pts.visible = false; S.confs.pts.visible = false;
+        S.bg.material = new THREE.MeshBasicMaterial({ color: 0xff2020, fog: false });
+      }
+      if (what === 'restore') {
+        S.stage.visible = true; S.dustA.pts.visible = true; S.dustB.pts.visible = true;
+        S.vig.visible = true; S.redMesh.visible = true;
+        S.sparks.pts.visible = true; S.smoke.pts.visible = true; S.confs.pts.visible = true;
+        S.bg.material = new THREE.MeshBasicMaterial({ map: S.tex.bg, fog: false });
+      }
+      if (what === 'noVig') { S.vig.visible = false; S.redMesh.visible = false; }
+      if (what === 'vigOn') { S.vig.visible = true; S.redMesh.visible = true; }
+      if (what === 'list') {
+        const out = [];
+        S.scene.traverse(o => {
+          if (o.visible && (o.isMesh || o.isPoints || o.isLight))
+            out.push(o.type + '@' + o.position.z.toFixed(0) + (o.material && o.material.map ? '+map' : '') +
+              (o.material && o.material.transparent ? '+t' : ''));
+        });
+        return out;
+      }
+      if (what === 'info') { S.renderer.render(S.scene, S.camera); return S.renderer.info.render; }
+      return null;
+    };
+
     // ---------- boot / exports ----------
     R3D.boot = function (canvas) {
       try {
@@ -1440,8 +1476,8 @@
         S.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         S.renderer.toneMappingExposure = 1.12;
         S.renderer.setClearColor(0x070d19, 1);
-        S.camera = new THREE.OrthographicCamera(0, W, 0, H, 1, 1400);  // exact 2D framing: world == screen
-        S.camera.position.set(200, 320, 500);
+        S.camera = new THREE.OrthographicCamera(-W / 2, W / 2, -H / 2, H / 2, 1, 1400); // planes are camera-relative
+        S.camera.position.set(200, 320, 500);                  // board center; ±(200,320) → exact 2D framing
         S.scene = new THREE.Scene();
         S.scene.fog = new THREE.Fog(0x0d1524, 500, 800);
         buildTextures(); buildMats(); buildEnvironment();
@@ -1456,6 +1492,26 @@
     R3D.draw = draw3D;
     R3D.onEvent = onEvent;
     R3D.pointer = pointer;
+    if (typeof window !== 'undefined') window.__PTP_R3D = R3D; // debug handle for the headless visual audit
+    R3D.debug = function () {                                  // diagnostics for the headless visual audit
+      if (!R3D.ready) return null;
+      const c = S.camera, st = S.stage;
+      S.renderer.render(S.scene, S.camera);                    // fresh frame so info reflects reality
+      const info = S.renderer.info.render;
+      const v = new THREE.Vector3(200, 455, 24);
+      v.project(c);
+      const bgp = new THREE.Vector3(200, 320, -420);
+      bgp.project(c);
+      return {
+        rev: THREE.REVISION, calls: info.calls, tris: info.triangles,
+        ndcGold: [v.x, v.y, v.z], ndcBg: [bgp.x, bgp.y, bgp.z],
+        buf: [S.renderer.domElement.width, S.renderer.domElement.height],
+        cam: { l: c.left, r: c.right, t: c.top, b: c.bottom, n: c.near, f: c.far, pos: c.position.toArray(), mtx: c.projectionMatrix.elements.slice(0, 8) },
+        stage: { pos: st.position.toArray(), rot: st.rotation.toArray(), scl: st.scale.toArray() },
+        slots: S.slots.slice(0, 4).map(sl => sl.sph ? [sl.sph.type, sl.sph.x, sl.sph.y, sl.g.position.toArray()] : null),
+        pins: S.pins.filter(p => p.g.visible).slice(0, 2).map(p => [p.p.x, p.p.y, p.g.position.toArray()])
+      };
+    };
   })();
 
   // ================= SELF-TESTS (node game.js) =================

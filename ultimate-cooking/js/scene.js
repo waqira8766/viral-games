@@ -362,10 +362,10 @@
     var portrait = h >= w;
     if (portrait) {
       camera.fov = 55;
-      camera.position.set(0, 4.0, 7.4);
+      camera.position.set(0, 7.0, 5.9);
     } else {
-      camera.fov = 44;
-      camera.position.set(0, 3.7, 9.4);
+      camera.fov = 46;
+      camera.position.set(0, 5.8, 9.0);
     }
     camera.updateProjectionMatrix();
   };
@@ -632,14 +632,13 @@
     var hits = raycaster.intersectObjects(hitList, false);
     return hits.length ? hits[0].object.userData.hitId : null;
   };
+  var _plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.05);
   S.raycastWorld = function (clientX, clientY, out) {
     var r = canvas.getBoundingClientRect();
     _ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
     _ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
     raycaster.setFromCamera(_ndc, camera);
-    /* intersect the counter plane y=1.05 */
-    var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.05);
-    if (raycaster.ray.intersectPlane(plane, out)) return out;
+    if (raycaster.ray.intersectPlane(_plane, out)) return out;
     out.set(0, 1.05, 0);
     return out;
   };
@@ -668,24 +667,38 @@
     scene.add(world);
 
     var rest = UC.RESTAURANTS[rid];
-    var ings = UC.restIngredients(rid);
 
     /* hanging sign */
     var sign = new THREE.Group();
     var boardM = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.3, 0.08), new THREE.MeshLambertMaterial({ map: signTex(rest.name, rest.tag) }));
     sign.add(boardM);
-    var ropeL = cyl(0.02, 0.02, 1.2, 0x8A623F, false, 6);
-    ropeL.position.set(-1.0, 1.2, 0); sign.add(ropeL);
+    var ropeL = cyl(0.02, 0.02, 1.0, 0x8A623F, false, 6);
+    ropeL.position.set(-1.0, 1.1, 0); sign.add(ropeL);
     var ropeR = ropeL.clone(); ropeR.position.x = 1.0; sign.add(ropeR);
-    sign.position.set(0, 3.6, -6.0);
+    sign.position.set(0, 2.95, -6.0);
     world.add(sign);
     signRec = { group: sign };
 
-    /* ingredient bins along the front */
+    /* ingredient bins: two market rows (front + raised back step) */
+    var ings = UC.restIngredients(rid);
     var n = ings.length;
-    for (var i = 0; i < n; i++) {
-      var id = ings[i];
-      var bx = (i - (n - 1) / 2) * 1.12;
+    var frontN = Math.min(4, n);
+    var backN = n - frontN;
+    var rowZ = [0.62, -0.30];
+    var rowY = [1.1, 1.34];
+    var i, id, bx, row, idxInRow;
+    /* wooden riser under the back row */
+    if (backN > 0) {
+      var riser = new THREE.Mesh(new THREE.BoxGeometry(backN * 1.16 + 0.3, 0.24, 1.0), new THREE.MeshLambertMaterial({ map: TEX.crate }));
+      riser.position.set(0, 1.22, -0.30);
+      world.add(riser);
+    }
+    for (i = 0; i < n; i++) {
+      id = ings[i];
+      row = i < frontN ? 0 : 1;
+      idxInRow = i - (row === 0 ? 0 : frontN);
+      var count = row === 0 ? frontN : backN;
+      bx = (idxInRow - (count - 1) / 2) * 1.16;
       var bin = new THREE.Group();
       var crate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.62), new THREE.MeshLambertMaterial({ map: TEX.crate }));
       crate.position.y = 0.25;
@@ -698,12 +711,12 @@
       mini.scale.setScalar(0.72);
       mini.position.y = 0.62;
       bin.add(mini);
-      bin.position.set(bx, 1.1, 0.38);
+      bin.position.set(bx, rowY[row], rowZ[row]);
       world.add(bin);
-      bins[id] = { group: bin, crate: crate, mini: mini, baseY: 1.1, x: bx };
+      bins[id] = { group: bin, crate: crate, mini: mini, baseY: rowY[row], x: bx, z: rowZ[row] };
       binOrder.push(id);
-      var hit = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.9, 0.9), lambert(0xffffff));
-      hit.position.set(bx, 1.5, 0.38);
+      var hit = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.95, 0.95), lambert(0xffffff));
+      hit.position.set(bx, rowY[row] + 0.45, rowZ[row]);
       addHit(hit, 'bin:' + id);
     }
 
@@ -717,25 +730,25 @@
     knifeG.position.set(0.5, 0.12, -0.32);
     knifeG.rotation.z = 0.14;
     board.add(knifeG);
-    board.position.set(-1.85, 1.1, -1.25);
+    board.position.set(-1.85, 1.1, -1.35);
     world.add(board);
     boardRec = { group: board, knife: knifeG, item: null, baseKnifeRot: knifeG.rotation.z };
     var bHit = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 1.3), lambert(0xffffff));
-    bHit.position.set(-1.85, 1.3, -1.25);
+    bHit.position.set(-1.85, 1.3, -1.35);
     addHit(bHit, 'board');
 
     /* stove + pans (diner) */
     if (rest.pans > 0) {
       var stove = new THREE.Group();
-      var slabS = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.1, 1.35), lambert(0x4A4038));
+      var slabS = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.35), lambert(0x4A4038));
       slabS.position.y = 0.05; stove.add(slabS);
       var knobF = cyl(0.06, 0.06, 0.05, 0xE8654A, true, 8);
-      knobF.position.set(-0.7, 0.12, 0.55); stove.add(knobF);
-      stove.position.set(1.85, 1.1, -1.25);
+      knobF.position.set(-0.85, 0.12, 0.55); stove.add(knobF);
+      stove.position.set(1.7, 1.1, -1.35);
       world.add(stove);
       var panCount = save.upgrades.burner > 0 ? 2 : 1;
       for (var pi = 0; pi < panCount; pi++) {
-        var px = panCount === 1 ? 1.85 : 1.35 + pi * 1.0;
+        var px = panCount === 1 ? 1.7 : 1.2 + pi * 1.0;
         var pan = new THREE.Group();
         var body = cyl(0.5, 0.46, 0.13, 0x2E2A26, true);
         body.position.y = 0.13; pan.add(body);
@@ -757,11 +770,11 @@
         var pattyHolder = new THREE.Group();
         pattyHolder.position.y = 0.22;
         pan.add(pattyHolder);
-        pan.position.set(px, 1.1, -1.25);
+        pan.position.set(px, 1.1, -1.35);
         world.add(pan);
         pans.push({ group: pan, body: body, glow: glow, oil: oil, holder: pattyHolder, patty: null, x: px });
         var pHit = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.8, 1.15), lambert(0xffffff));
-        pHit.position.set(px, 1.5, -1.25);
+        pHit.position.set(px, 1.5, -1.35);
         addHit(pHit, 'pan:' + pi);
       }
     }
@@ -778,11 +791,11 @@
       var pizzaHolder = new THREE.Group();
       pizzaHolder.position.set(0, 0.74, 0.75);
       ov.add(pizzaHolder);
-      ov.position.set(1.95, 1.1, -1.35);
+      ov.position.set(1.7, 1.1, -1.5);
       world.add(ov);
       ovenRec = { group: ov, glow: fireGlow, holder: pizzaHolder, pizza: null };
       var oHit = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.7, 1.5), lambert(0xffffff));
-      oHit.position.set(1.95, 1.85, -1.35);
+      oHit.position.set(1.7, 1.85, -1.5);
       addHit(oHit, 'oven');
     }
 
@@ -810,11 +823,11 @@
     var stackHolder = new THREE.Group();
     stackHolder.position.y = 0.08;
     plate.add(stackHolder);
-    plate.position.set(0, 1.09, -1.35);
+    plate.position.set(0, 1.09, -1.5);
     world.add(plate);
     plateRec = { group: plate, stackHolder: stackHolder, baseY: 1.09 };
     var plHit = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.5), lambert(0xffffff));
-    plHit.position.set(0, 1.4, -1.35);
+    plHit.position.set(0, 1.4, -1.5);
     addHit(plHit, 'plate');
 
     /* trash bin */
@@ -823,11 +836,11 @@
     tBody.position.y = 0.28; trash.add(tBody);
     var lid = cyl(0.34, 0.34, 0.07, 0x5E7370, true);
     lid.position.y = 0.6; trash.add(lid);
-    trash.position.set(3.05, 1.1, 0.3);
+    trash.position.set(2.55, 1.1, -2.15);
     world.add(trash);
     trashRec = { group: trash, lid: lid };
     var tHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.0, 0.9), lambert(0xffffff));
-    tHit.position.set(3.05, 1.5, 0.3);
+    tHit.position.set(2.55, 1.5, -2.15);
     addHit(tHit, 'trash');
 
     /* tip jar */
@@ -839,7 +852,7 @@
     coinPile.position.y = 0.1; jar.add(coinPile);
     var tag = box(0.2, 0.16, 0.02, 0xFFFDF6);
     tag.position.set(0, 0.3, 0.22); jar.add(tag);
-    jar.position.set(-3.0, 1.1, -2.2);
+    jar.position.set(-2.6, 1.1, -2.3);
     world.add(jar);
     jarRec = { group: jar, coinPile: coinPile };
 
@@ -854,12 +867,12 @@
     tail.rotation.x = Math.PI / 2; tail.position.set(-0.3, 0.16, 0.05); cat.add(tail);
     var zzz = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.flour, transparent: true, opacity: 0, depthWrite: false }));
     zzz.scale.set(0.3, 0.3, 1); zzz.position.set(0.45, 0.55, 0.2); cat.add(zzz);
-    cat.position.set(-2.45, 1.1, -2.45);
+    cat.position.set(-2.3, 1.1, -2.55);
     cat.rotation.y = 0.5;
     world.add(cat);
     catRec = { group: cat, body: bodyC, earL: earL, earR: earR, zzz: zzz, swipe: 0 };
     var catHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.9), lambert(0xffffff));
-    catHit.position.set(-2.45, 1.35, -2.45);
+    catHit.position.set(-2.3, 1.35, -2.55);
     addHit(catHit, 'cat');
 
     /* big invisible customer drop zone (drag-plate-to-serve target) */
@@ -876,7 +889,7 @@
     antenna.position.set(0.2, 0.5, 0); antenna.rotation.z = -0.4; radio.add(antenna);
     var note = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.sparkle, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     note.scale.set(0.22, 0.22, 1); note.position.set(0.28, 0.5, 0); radio.add(note);
-    radio.position.set(-1.65, 1.1, -2.55);
+    radio.position.set(-1.5, 1.1, -2.65);
     world.add(radio);
     radioRec = { group: radio, note: note, on: false };
 
@@ -886,7 +899,7 @@
         map: TEX.flour, transparent: true, opacity: 0, depthWrite: false, color: 0xFFB7D5
       }));
       swirl.scale.set(1.1, 1.1, 1);
-      swirl.position.set(0, 1.75, -1.35);
+      swirl.position.set(0, 1.75, -1.5);
       world.add(swirl);
       plateRec.frostSwirl = swirl;
     }
@@ -896,6 +909,7 @@
   function disposeGroup(g) {
     g.traverse(function (o) {
       if (o.geometry) o.geometry.dispose();
+      if (o.material && !o.material._shared) o.material.dispose();
     });
   }
 
@@ -905,7 +919,7 @@
   var BODY_COLORS = [0xFF8A5C, 0xFFD166, 0x8FD694, 0x7EC8E3, 0xE4A0C7, 0xC9ADA7];
   var STOOL_X = 0, STOOL_Q = 2.5;
 
-  function buildCustomer(cust) {
+  function buildCustomer(cust, targetX) {
     var look = cust.look;
     var g = new THREE.Group();
     var bodyCol = BODY_COLORS[look.body % BODY_COLORS.length];
@@ -996,37 +1010,41 @@
     };
     customers.push(rec);
     /* slide in */
-    var targetX = rec.slotsTarget = 0;
-    S.tween(0.55, function (k) { g.position.x = 4.5 + (targetX - 4.5) * k; }, EASE.out, function () { rec.state = 'idle'; });
+    var tx = targetX || 0;
+    S.tween(0.55, function (k) { g.position.x = 4.5 + (tx - 4.5) * k; }, EASE.out, function () { rec.state = 'idle'; });
     return rec;
   }
 
   S.setCustomerSlots = function (activeCust, nextCust) {
-    /* ensure rigs match: rig[0] = active, rig[1] = next */
+    var i;
     if (activeCust) {
       if (!customers[0] || customers[0].cust !== activeCust) {
-        if (customers[0]) removeCustomer(0);
-        if (nextCust && customers[1] && customers[1].cust === activeCust) {
-          /* promote queue rig */
-          var rig = customers.splice(1, 1)[0];
+        /* promote an existing rig for this customer (it was the queue rig) */
+        var found = -1;
+        for (i = 0; i < customers.length; i++) if (customers[i].cust === activeCust) { found = i; break; }
+        if (found > 0) {
+          var rig = customers.splice(found, 1)[0];
           customers.unshift(rig);
           moveRigTo(rig, 0);
         } else {
-          customers.unshift(buildCustomer(activeCust));
+          if (customers[0]) removeCustomer(0);
+          customers.unshift(buildCustomer(activeCust, 0));
         }
       }
     } else if (customers[0]) {
       removeCustomer(0);
     }
     if (nextCust) {
-      if (!customers[1] || customers[1].cust !== nextCust) {
-        if (customers[1]) removeCustomer(1);
-        var rig2 = buildCustomer(nextCust);
-        customers.push(rig2);
-        moveRigTo(rig2, 1);
+      var exists = false;
+      for (i = 1; i < customers.length; i++) if (customers[i].cust === nextCust) { exists = true; break; }
+      if (!exists) {
+        while (customers.length > 1) removeCustomer(1);
+        customers.push(buildCustomer(nextCust, STOOL_Q));
+      } else {
+        while (customers.length > 2) removeCustomer(2);
       }
-    } else if (customers[1]) {
-      removeCustomer(1);
+    } else {
+      while (customers.length > 1) removeCustomer(1);
     }
   };
 
@@ -1057,9 +1075,9 @@
       var r = customers[i];
       if (!r || r.state === 'leaving') continue;
       var g = r.group;
-      /* idle bob */
+      /* idle bob (+ event hop offset layered on top) */
       r.bobPhase += dt * (2 + (r.cust.mood === 'hasty' ? 1.2 : 0));
-      g.position.y = Math.sin(r.bobPhase) * 0.03;
+      g.position.y = Math.sin(r.bobPhase) * 0.03 + (r.hopY || 0);
       /* blink */
       r.blinkT -= dt;
       if (r.blinkT <= 0) {
@@ -1070,6 +1088,13 @@
             rr.eyeL.scale.y = rr.eyeR.scale.y = Math.max(0.08, s);
           });
         })(r);
+      }
+      /* expression follows patience — alive, not scripted */
+      var patFrac = r.cust.patience / r.cust.patienceMax;
+      if (patFrac < 0.28) {
+        r.mouth.rotation.z = 0;                 /* worried frown */
+        r.mouth.scale.set(0.85, 0.85, 1);
+        r.head.rotation.x = Math.min(0.12, r.head.rotation.x + 0.01);
       }
       /* eye tracking */
       if (eyeTarget) {
@@ -1093,10 +1118,10 @@
     if (!r) return;
     r.mouth.rotation.z = Math.PI;
     r.mouth.scale.set(1.25, 1.1, 1);
-    var y0 = r.group.position.y;
+    r.hopY = 0;
     S.tween(0.55, function (k) {
-      r.group.position.y = y0 + Math.sin(k * Math.PI * 2) * 0.22 * (1 - k * 0.4);
-    }, EASE.out);
+      r.hopY = Math.sin(k * Math.PI * 2) * 0.24 * (1 - k * 0.4);
+    }, EASE.out, function () { r.hopY = 0; });
     _v1.set(r.group.position.x, 2.2, -4.35);
     S.fxSparkle(_v1);
   };
@@ -1136,6 +1161,17 @@
     customers.shift();
   };
 
+  /* expected-bin glow: a warm halo tells the thumb where to go next */
+  S.setExpectedBin = function (ingId) {
+    for (var i = 0; i < binOrder.length; i++) {
+      var b = bins[binOrder[i]];
+      if (!b) continue;
+      var on = binOrder[i] === ingId;
+      b.crate.material.emissive.setHex(on ? 0x552200 : 0x000000);
+      b.mini.position.y = on ? 0.68 : 0.62;
+    }
+  };
+
   /* ================================================================
    * BIN ANIMATIONS
    * ================================================================ */
@@ -1145,8 +1181,8 @@
     S.tween(0.28, function (k) {
       var s = 1 + Math.sin(k * Math.PI) * 0.1;
       b.group.scale.set(s, 2 - s, s);
-      b.mini.position.y = 0.62 + Math.sin(k * Math.PI) * 0.12;
-    }, EASE.out);
+      b.group.rotation.y = Math.sin(k * Math.PI) * 0.08;
+    }, EASE.out, function () { b.group.rotation.y = 0; });
   };
   S.binWrong = function (id) {
     var b = bins[id];
@@ -1160,7 +1196,8 @@
       var b = bins[binOrder[i]];
       if (!b) continue;
       b.mini.rotation.y += dt * 0.9;
-      b.mini.position.y = 0.62 + Math.sin(time * 2 + i * 1.3) * 0.02;
+      var isExpected = b.mini.position.y > 0.65;
+      b.mini.position.y = (isExpected ? 0.68 : 0.62) + Math.sin(time * 2 + i * 1.3) * (isExpected ? 0.045 : 0.02);
     }
   };
 
@@ -1230,6 +1267,7 @@
    * PAN / OVEN / PLATE SYNC
    * ================================================================ */
   var pattyCol = new THREE.Color(), rawC = new THREE.Color(0xD98A6A), doneC = new THREE.Color(0x7A4A28), burntC = new THREE.Color(0x2A1B10);
+  function _tintPatty(o) { if (o.isMesh) o.material.color.copy(pattyCol); }
 
   S.syncPans = function (st) {
     for (var i = 0; i < pans.length; i++) {
@@ -1253,7 +1291,7 @@
       else k = 1.4;
       if (k > 1) pattyCol.copy(doneC).lerp(burntC, Math.min(1, (k - 1) / 0.4));
       else pattyCol.copy(rawC).lerp(doneC, k);
-      rec.patty.traverse(function (o) { if (o.isMesh) o.material.color.copy(pattyCol); });
+      rec.patty.traverse(_tintPatty);
       rec.glow.material.opacity = pan.phase === 'cooking' ? 0.55 + Math.sin(time * 9) * 0.15 : 0.0;
       rec.oil.material.opacity = pan.phase === 'cooking' ? 0.35 + Math.sin(time * 5 + i) * 0.15 : 0;
       /* flip hop */
@@ -1318,10 +1356,27 @@
 
   /* plate stack sync (rebuild on rev change) */
   S.syncPlate = function (st) {
+    /* while the pizza is in the oven (or burnt), the plate is empty */
+    if (st.plate.phase === 'baking' || st.plate.phase === 'burnt') {
+      if (plateStack.length) {
+        var holder0 = plateRec.stackHolder;
+        while (plateStack.length) {
+          var dead = plateStack.pop();
+          holder0.remove(dead);
+          disposeGroup(dead);
+        }
+      }
+      plateRev = st.plate.rev;
+      return;
+    }
     if (st.plate.rev === plateRev) return;
     plateRev = st.plate.rev;
     var holder = plateRec.stackHolder;
-    while (plateStack.length) holder.remove(plateStack.pop());
+    while (plateStack.length) {
+      var old = plateStack.pop();
+      holder.remove(old);
+      disposeGroup(old);
+    }
     var y = 0;
     for (var i = 0; i < st.plate.items.length; i++) {
       var id = st.plate.items[i];
@@ -1340,22 +1395,42 @@
       holder.add(splat);
       plateStack.push(splat);
     }
+    /* fresh-out-the-oven pizzas get a golden bake tint */
+    if (st.plate.hot && plateStack.length) {
+      var hot = new THREE.Color(0xC97B32);
+      for (i = 0; i < plateStack.length; i++) {
+        plateStack[i].traverse(function (o) {
+          if (o.isMesh) o.material.color.lerp(hot, 0.18);
+        });
+      }
+    }
   };
 
-  /* plate slide animations for serve */
-  S.fxServe = function (onDone) {
-    var g = plateRec.group;
-    var y0 = g.position.y, z0 = g.position.z;
-    S.tween(0.5, function (k) {
-      g.position.z = z0 + k * -1.6;
-      g.position.y = y0 + Math.sin(k * Math.PI) * 0.18;
+  /* plate slide animations for serve — animates a ghost stack toward the customer */
+  S.fxServe = function (items, speed) {
+    var ghost = new THREE.Group();
+    var y = 0;
+    for (var i = 0; i < items.length; i++) {
+      var id = items[i];
+      var food = S.makeFood(id);
+      food.position.y = y + STACK_H[id] / 2;
+      y += STACK_H[id];
+      ghost.add(food);
+    }
+    ghost.position.set(0, 1.09, -1.5);
+    scene.add(ghost);
+    var dur = speed ? 0.38 : 0.5;
+    S.tween(dur, function (k) {
+      ghost.position.z = -1.5 + k * -1.55;
+      ghost.position.y = 1.09 + Math.sin(k * Math.PI) * 0.22;
+      ghost.rotation.y = k * 0.6;
     }, EASE.inOut, function () {
-      /* fade the stack out */
-      S.tween(0.25, function (k2) {
-        g.scale.setScalar(1 - k2 * 0.9);
+      S.tween(0.22, function (k2) {
+        ghost.scale.setScalar(1 - k2 * 0.92);
+        ghost.position.y = 1.09 - k2 * 0.1;
       }, EASE.in, function () {
-        g.position.z = z0; g.position.y = y0; g.scale.setScalar(1);
-        if (onDone) onDone();
+        scene.remove(ghost);
+        disposeGroup(ghost);
       });
     });
   };
@@ -1368,10 +1443,13 @@
   var dragLag = new THREE.Vector3();
   var dragPrev = new THREE.Vector3();
   S.startDrag = function (ingId) {
-    if (dragMesh) { scene.remove(dragMesh); }
+    if (dragMesh) { scene.remove(dragMesh); disposeGroup(dragMesh); }
     dragId = ingId;
     dragMesh = (ingId === '__plate__') ? buildPlateSnapshot(G_state.plate) : S.makeFood(ingId);
-    if (ingId === '__plate__') dragMesh.scale.setScalar(0.9);
+    if (ingId === '__plate__') {
+      dragMesh.scale.setScalar(0.9);
+      plateRec.group.visible = false; /* hide the real plate while carrying it */
+    }
     dragMesh.visible = true;
     scene.add(dragMesh);
     dragLag.set(0, 1.4, 0.5);
@@ -1389,8 +1467,9 @@
     dragMesh.rotation.x = Math.max(-0.5, Math.min(0.5, vz * 6));
   };
   S.endDrag = function () {
-    if (dragMesh) scene.remove(dragMesh);
+    if (dragMesh) { scene.remove(dragMesh); disposeGroup(dragMesh); }
     dragMesh = null; dragId = null;
+    if (plateRec) plateRec.group.visible = true;
   };
   S.dragTarget = function () { return dragMesh ? dragLag : null; };
 
@@ -1449,14 +1528,14 @@
   S.anchorPos = function (id, out) {
     if (id.slice(0, 4) === 'bin:') {
       var b = bins[id.slice(4)];
-      if (b) { out.set(b.x, 1.95, 0.38); return out; }
+      if (b) { out.set(b.x, b.baseY + 0.85, b.z); return out; }
     }
     switch (id) {
-      case 'board': out.set(-1.85, 1.85, -1.25); break;
-      case 'pan0': out.set(pans.length ? pans[0].x : 1.35, 1.9, -1.25); break;
-      case 'pan1': out.set(pans.length > 1 ? pans[1].x : 2.35, 1.9, -1.25); break;
-      case 'oven': out.set(1.95, 2.6, -1.35); break;
-      case 'plate': out.set(0, 1.6, -1.35); break;
+      case 'board': out.set(-1.85, 1.95, -1.35); break;
+      case 'pan0': out.set(pans.length ? pans[0].x : 1.2, 1.95, -1.35); break;
+      case 'pan1': out.set(pans.length > 1 ? pans[1].x : 2.2, 1.95, -1.35); break;
+      case 'oven': out.set(1.7, 2.75, -1.5); break;
+      case 'plate': out.set(0, 1.65, -1.5); break;
       case 'customer':
         if (customers[0]) customers[0].head.getWorldPosition(out);
         else out.set(0, 2.2, -4.35);
@@ -1487,7 +1566,7 @@
     /* camera micro drift */
     camT += dt;
     camera.position.x = Math.sin(camT * 0.4) * 0.05;
-    camera.lookAt(0, 1.15, -1.5);
+    camera.lookAt(0, 0.95, -1.6);
 
     if (st) {
       G_state = st;
@@ -1506,19 +1585,19 @@
           steamAcc += dt * (pan.phase === 'cooking' ? 1.6 : 0.8);
           if (steamAcc > 0.35) {
             steamAcc = 0;
-            _v1.set(pans[i].x, 1.45, -1.25);
+            _v1.set(pans[i].x, 1.45, -1.35);
             S.fxSteam(_v1, false);
           }
         }
       }
       if (st.oven && st.oven.phase === 'baking') {
         heatLevel += 1;
-        _v1.set(1.95, 2.4, -1.0);
+        _v1.set(1.7, 2.4, -1.2);
         if (Math.random() < dt * 2.2) S.fxSteam(_v1, true);
       }
       if (st.plate.hot) {
         heatLevel += 0.5;
-        _v1.set(0, 1.35 + Math.random() * 0.3, -1.35);
+        _v1.set(0, 1.35 + Math.random() * 0.3, -1.5);
         if (Math.random() < dt * 1.5) S.fxSteam(_v1, true);
       }
       if (st.frost && !st.frost.done && plateRec && plateRec.frostSwirl) {

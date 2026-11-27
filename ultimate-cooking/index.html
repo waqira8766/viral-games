@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#FFF6E9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="ULTIMATE COOKING — the satisfying food game. Chop, flip, stack and serve your way through four cozy restaurants.">
+<title>Ultimate Cooking</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23FF7A59'/%3E%3Ccircle cx='16' cy='13' r='8' fill='%23FFC93C'/%3E%3Ccircle cx='16' cy='20' r='7' fill='%237BC950'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div id="steamFog"></div>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="layer">
+    <div id="topbar">
+      <div class="pill" id="coinPill">🪙 <b id="hudCoins">0</b><span id="coinDelta"></span></div>
+      <div class="pill" id="dayPill"><b id="hudDay">Day 1</b></div>
+      <button id="hudMute" class="roundBtn" aria-label="mute">🔊</button>
+      <button id="hudPause" class="roundBtn" aria-label="pause">⏸</button>
+    </div>
+    <div id="restBar"><span id="hudRest">Sunny Diner</span></div>
+
+    <div id="comboWrap">
+      <div class="pill" id="comboPill">COMBO <b id="comboX">×1</b>
+        <div id="comboBar"><div id="comboFill"></div></div>
+      </div>
+    </div>
+
+    <div id="ticket" class="hidden">
+      <div class="t-head"><span id="ticketName"></span><b id="ticketPrice"></b></div>
+      <div class="t-order" id="ticketOrder"></div>
+      <div id="ticketChips"></div>
+    </div>
+
+    <!-- world-anchored widgets -->
+    <div id="patience" class="worldWidget hidden">
+      <span id="patienceName"></span>
+      <div class="pbar"><div id="patienceFill"></div></div>
+    </div>
+    <div id="panMeter0" class="meter timing hidden"><div class="zone"></div><div class="mark"></div></div>
+    <div id="panMeter1" class="meter timing hidden"><div class="zone"></div><div class="mark"></div></div>
+    <div id="ovenMeter" class="meter timing hidden"><div class="zone"></div><div class="mark"></div></div>
+    <div id="pchopMeter" class="meter timing hidden"><div class="zone"></div><div class="mark"></div></div>
+    <div id="chopMeter" class="meter prog hidden"><div class="fill"></div><span class="plabel"></span></div>
+    <div id="frostMeter" class="meter timing hidden"><div class="zone"></div><div class="mark"></div><span class="plabel"></span></div>
+
+    <div id="toasts"></div>
+    <div id="mcCluster"></div>
+
+    <div id="tutorial" class="hidden">
+      <div id="tutRing"></div>
+      <div id="tutCard">
+        <span id="tutText"></span>
+        <button id="tutSkip">SKIP TUTORIAL</button>
+      </div>
+    </div>
+
+    <div id="countdown" class="hidden"></div>
+    <div id="unlockToast" class="hidden"></div>
+  </div>
+
+  <!-- ================= SCREENS ================= -->
+  <div id="mapScreen" class="screen">
+    <div class="panel">
+      <h1 id="mapTitle">ULTIMATE COOKING</h1>
+      <div class="map-sub">the satisfying food game</div>
+      <div class="map-stats">
+        <span class="pill">🪙 <b id="mapCoins">0</b></span>
+        <span class="pill gold" id="mapStars">0 ★</span>
+      </div>
+      <div id="mapList"></div>
+      <div class="map-actions">
+        <button id="mapShop" class="bigBtn">🛒 UPGRADES</button>
+        <button id="mapMute" class="bigBtn alt" style="min-width:64px">🔊</button>
+        <button id="mapReset" class="smallBtn">reset save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shop" class="screen hidden">
+    <div class="panel">
+      <div class="panel-head"><b>Kitchen Upgrades</b><span class="pill">🪙 <b id="shopCoins">0</b></span></div>
+      <div id="shopList"></div>
+      <button id="shopClose" class="bigBtn">BACK</button>
+    </div>
+  </div>
+
+  <div id="dayEnd" class="screen hidden">
+    <div class="panel">
+      <div class="de-title"></div>
+      <div class="de-stars" id="deStars"></div>
+      <div class="de-coins">$<span id="deCoins">0</span></div>
+      <div class="de-stats">
+        <div id="deServed"></div>
+        <div id="deWalkouts"></div>
+      </div>
+      <div class="de-actions">
+        <button id="deNext" class="bigBtn">Next Day</button>
+        <button id="deMap" class="bigBtn alt">Map</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <b style="font-size:22px">Paused</b>
+      <button id="pauseResume" class="bigBtn">RESUME</button>
+      <button id="pauseMute" class="bigBtn alt">🔊</button>
+      <button id="pauseMap" class="bigBtn danger">QUIT TO MAP</button>
+    </div>
+  </div>
+
+  <div id="confirm" class="screen hidden">
+    <div class="panel">
+      <p id="confirmText"></p>
+      <div>
+        <button id="confirmYes" class="bigBtn danger">YES</button>
+        <button id="confirmNo" class="bigBtn alt">NO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/vendor/three.min.js"></script>
+<script src="../shared/mobile-controls.js"></script>
+<script src="js/logic-core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

@@ -796,8 +796,9 @@
     return { code: 'unknown' };
   };
 
-  /* ---------------- MC button visibility FSM (pure) ---------------- */
-  UC.buttonVisibility = function (st) {
+  /* ---------------- MC button visibility FSM (pure; pass `out` to reuse) ---------------- */
+  UC.buttonVisibility = function (st, out) {
+    out = out || {};
     var chop = false, flip = false, serve = false;
     if (st && !st.finished && st.active) {
       chop = !!(st.board); /* something on the board needing taps */
@@ -807,7 +808,8 @@
       }
       serve = st.plate.phase === 'complete';
     }
-    return { chop: chop, flip: flip, serve: serve };
+    out.chop = chop; out.flip = flip; out.serve = serve;
+    return out;
   };
 
   /* mount gating: touch devices OR narrow screens */

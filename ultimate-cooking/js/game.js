@@ -42,9 +42,10 @@
     mcBtns: {},
     mcMounted: false,
     drag: null, /* {mode:'patty'|'plate'} */
+    serveItems: [],
     _v: null, _p: { x: 0, y: 0 }
   };
-  window.UCGame = { boot: boot, G: G };
+  window.UCGame = { boot: boot, G: G, startDay: startDay };
 
   /* ---------------- save ---------------- */
   function loadSave() {
@@ -182,6 +183,13 @@
   /* the ONE dispatcher both input paths feed through */
   function routeAction(name, args) {
     if (!G.st || !G.playing || G.paused || G.dayEnding) return { code: 'idle' };
+    /* remember the stack contents pre-serve so the slide animation can ghost them */
+    if (name === 'serve' && G.st.plate.items.length) {
+      G.serveItems.length = 0;
+      for (var si = 0; si < G.st.plate.items.length; si++) G.serveItems.push(G.st.plate.items[si]);
+    } else {
+      G.serveItems.length = 0;
+    }
     var res = UC.dispatch(G.st, UC.MC_BINDINGS[name], G.frameId, args);
     handleResult(name, res);
     return res;
@@ -204,14 +212,17 @@
     UI.syncMute(G.save.muted);
     UI.setHUD(G.save, rid, G.day);
     UI.comboSync(G.st.combo);
-    G.playing = true;
+    G.playing = false;
     G.paused = false;
     G.dayEnding = false;
     G.lastComboLevel = 1;
     G.tutActive = false;
     G.tutStep = -1;
+    G._lastVis = null;
     UI.countdown('Day ' + G.day, 750, function () {
       UI.countdown('COOK!', 650, function () {
+        /* input + patience freeze until the countdown finishes */
+        G.playing = true;
         if (forceFirst) startTutorial();
       });
     });
@@ -264,6 +275,7 @@
     if (G.mcBtns.chop) visBtn(G.mcBtns.chop, false);
     if (G.mcBtns.flip) visBtn(G.mcBtns.flip, false);
     if (G.mcBtns.serve) visBtn(G.mcBtns.serve, false);
+    G._lastVis = null;
   }
 
   /* ================================================================
@@ -356,6 +368,8 @@
         handleResult('bake', r);
       } else if (G.st.plate.phase === 'complete' && hit === 'customerZone') {
         routeAction('serve');
+      } else if (hit === 'trash') {
+        actTrash();
       }
       return;
     }
@@ -388,6 +402,7 @@
         A.place();
         S.anchorPos('plate', G._v);
         S.fxPuff(G._v, 0xFFF7E4, 0.35);
+        S.customerSmile();
         UI.toast('Ready!', 'good', 0.5, 0.42);
         break;
       case 'wrong':
@@ -493,9 +508,9 @@
     A.coin();
     A.mmm();
     S.customerHappy();
-    S.fxServe();
+    S.fxServe(G.serveItems, G.save.upgrades.shoes > 0);
     S.anchorPos('plate', G._v);
-    _vJar.set(-3.0, 1.35, -2.2);
+    _vJar.set(-2.6, 1.35, -2.3);
     S.fxCoin(G._v, _vJar);
     UI.coinBump(res.coins);
     UI.toast('+$' + res.coins + (res.tip > 0 ? ' (tip $' + res.tip + ')' : ''), 'gold', 0.5, 0.3);
@@ -573,7 +588,8 @@
       if (G.st.finished && !G.dayEnding) { endDay(); }
     }
 
-    S.update(dt, G.playing ? G.st : null);
+    /* keep the diorama alive during countdowns/pauses; freeze logic only */
+    S.update(dt, (G.st && !G.paused) ? G.st : null);
     if (G.playing && G.st) syncUI(dt);
 
     A.update();

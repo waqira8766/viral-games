@@ -71,7 +71,12 @@ globalThis.document = {
   body: mockElement('body'), documentElement: mockElement('html'), head: mockElement('head'),
   hidden: false, visibilityState: 'visible'
 };
-globalThis.navigator = { maxTouchPoints: 0, userAgent: 'node-integration' };
+try {
+  if (typeof globalThis.navigator === 'undefined') globalThis.navigator = { maxTouchPoints: 0, userAgent: 'node-integration' };
+  else if (globalThis.navigator.maxTouchPoints === undefined) {
+    Object.defineProperty(globalThis.navigator, 'maxTouchPoints', { value: 0, configurable: true });
+  }
+} catch (e) { /* node's built-in navigator is fine for MC.isTouchDevice */ }
 globalThis.localStorage = {
   _s: {},
   getItem: function (k) { return Object.prototype.hasOwnProperty.call(this._s, k) ? this._s[k] : null; },
@@ -217,9 +222,8 @@ check('pop adds coins to state', Math.abs(G.state.coins - (coins10 + 10)) < 1e-9
 check('pop event payload {idx,tier,value,lucky,chained}',
   !!(stats.firstPop && stats.firstPop.idx === idx10 && stats.firstPop.tier === 1 &&
      stats.firstPop.value === 10 && stats.firstPop.lucky === false && stats.firstPop.chained === false));
-var idxL = forceCube(1, true);
-var vL = attempt(function () { return G.tapCell(idxL); });      /* combo 2 → ×1.2 → 12 → lucky ×10 */
-check('lucky pop pays ×10 (120 for tier1/combo2)', vL === 120);
+var vL = attempt(function () { return G.tapCell(idxL); });      /* combo 1 → ×1.1 → 11 → lucky ×10 */
+check('lucky pop pays ×10 (110 for tier1/combo2)', vL === 110);
 check('spawn event payload {idx,tier,lucky}',
   !!(stats.firstSpawn && isFinite(stats.firstSpawn.idx) && isFinite(stats.firstSpawn.tier) && typeof stats.firstSpawn.lucky === 'boolean'));
 

@@ -150,11 +150,18 @@
   };
 
   /* ---------------- combo meter ---------------- */
-  var lastComboLevel = 1;
+  var lastComboLevel = 1, _lastComboKey = '';
   UI.comboSync = function (combo) {
     var wrap = el('comboWrap');
-    if (combo.level <= 1 && combo.points === 0) { wrap.classList.remove('on'); lastComboLevel = 1; return; }
+    var key = combo.level + ':' + combo.points;
+    if (combo.level <= 1 && combo.points === 0) {
+      wrap.classList.remove('on');
+      lastComboLevel = 1; _lastComboKey = '';
+      return;
+    }
     wrap.classList.add('on');
+    if (key === _lastComboKey) return;
+    _lastComboKey = key;
     var lvl = combo.level;
     el('comboX').textContent = '×' + lvl;
     var need = lvl >= 5 ? 10 : [0, 2, 4, 6, 8][lvl];
@@ -162,13 +169,12 @@
     var frac = lvl >= 5 ? 1 : (combo.points - prevNeed) / (need - prevNeed);
     el('comboFill').style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
     if (lvl !== lastComboLevel) {
+      var pill = el('comboPill');
       if (lvl > lastComboLevel) {
-        var pill = el('comboPill');
         pill.classList.remove('pop');
         void pill.offsetWidth;
         pill.classList.add('pop');
       } else {
-        pill = el('comboPill');
         pill.classList.remove('lost');
         void pill.offsetWidth;
         pill.classList.add('lost');
@@ -177,43 +183,71 @@
     }
   };
 
-  /* ---------------- patience bar (world-anchored) ---------------- */
+  /* ---------------- patience bar (world-anchored; cached) ---------------- */
+  var _lastPatFrac = -1, _lastPatName = '';
   UI.patience = function (visible, frac, name, mood) {
     var p = el('patience');
-    if (!visible) { hide(p); return; }
+    if (!visible) { hide(p); _lastPatFrac = -1; return; }
     show(p);
-    var bar = el('patienceFill');
-    bar.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
-    bar.className = frac > 0.5 ? '' : (frac > 0.25 ? 'warn' : 'crit');
-    el('patienceName').textContent = name;
+    var f = Math.max(0, Math.min(1, frac));
+    var q = Math.round(f * 200); /* quantize: write only on real change */
+    if (q !== _lastPatFrac) {
+      _lastPatFrac = q;
+      var bar = el('patienceFill');
+      bar.style.width = (f * 100).toFixed(1) + '%';
+      bar.className = f > 0.5 ? '' : (f > 0.25 ? 'warn' : 'crit');
+    }
+    if (name !== _lastPatName) {
+      _lastPatName = name;
+      el('patienceName').textContent = name;
+    }
   };
 
-  /* ---------------- world-anchored meter positioning ---------------- */
+  /* ---------------- world-anchored meter positioning (cached writes) ---------------- */
+  var _posX = {}, _posY = {};
   UI.place = function (id, sx, sy, visible) {
     var node = el(id);
-    if (!visible) { hide(node); return null; }
+    if (!visible) {
+      hide(node);
+      _posX[id] = -1; _posY[id] = -1;
+      return null;
+    }
     show(node);
-    node.style.left = (sx * 100).toFixed(2) + '%';
-    node.style.top = (sy * 100).toFixed(2) + '%';
+    if (_posX[id] !== sx || _posY[id] !== sy) {
+      if (Math.abs((_posX[id] || 0) - sx) > 0.0015 || Math.abs((_posY[id] || 0) - sy) > 0.0015 || _posX[id] === -1) {
+        node.style.left = (sx * 100).toFixed(2) + '%';
+        node.style.top = (sy * 100).toFixed(2) + '%';
+      }
+      _posX[id] = sx; _posY[id] = sy;
+    }
     return node;
   };
 
-  /* timing bar content: marker + green zone */
+  /* timing bar content: marker + green zone (cached nodes — no per-frame queries) */
+  var _meterCache = {};
+  function meterParts(id) {
+    var m = _meterCache[id];
+    if (!m) {
+      var node = el(id);
+      m = _meterCache[id] = {
+        zone: node.querySelector('.zone'),
+        mark: node.querySelector('.mark'),
+        fill: node.querySelector('.fill'),
+        label: node.querySelector('.plabel')
+      };
+    }
+    return m;
+  }
   UI.timingBar = function (id, pos, greenA, greenB) {
-    var node = el(id);
-    var zone = node.querySelector('.zone');
-    var mark = node.querySelector('.mark');
-    zone.style.left = (greenA * 100).toFixed(1) + '%';
-    zone.style.width = ((greenB - greenA) * 100).toFixed(1) + '%';
-    mark.style.left = 'calc(' + (Math.max(0, Math.min(1, pos)) * 100).toFixed(1) + '% - 7px)';
+    var m = meterParts(id);
+    m.zone.style.left = (greenA * 100).toFixed(1) + '%';
+    m.zone.style.width = ((greenB - greenA) * 100).toFixed(1) + '%';
+    m.mark.style.left = 'calc(' + (Math.max(0, Math.min(1, pos)) * 100).toFixed(1) + '% - 7px)';
   };
   UI.progBar = function (id, frac, label) {
-    var node = el(id);
-    node.querySelector('.fill').style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
-    if (label !== undefined) {
-      var lab = node.querySelector('.plabel');
-      if (lab) lab.textContent = label;
-    }
+    var m = meterParts(id);
+    if (m.fill) m.fill.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%';
+    if (label !== undefined && m.label) m.label.textContent = label;
   };
 
   /* ---------------- toasts (pooled) ---------------- */
@@ -328,7 +362,7 @@
         card.innerHTML =
           '<div class="rc-icon">' + restIcon(rid) + '</div>' +
           '<div class="rc-body"><b>' + rest.name + '</b><span>' + rest.tag + '</span>' +
-          '<div class="rc-stars">' + starRow(save.restaurants[rid].stars % 3 || 0, true) +
+          '<div class="rc-stars">' + starRow(Math.min(3, save.restaurants[rid].stars), true) +
           ' <i>' + save.restaurants[rid].stars + '★ total</i></div></div>' +
           (unlocked
             ? '<div class="rc-go">Day ' + save.restaurants[rid].day + '</div>'

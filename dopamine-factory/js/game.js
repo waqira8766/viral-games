@@ -86,6 +86,7 @@ DP.Game = {
   _scratchWorld: { x: 0, z: 0 },
   _qBefore: [false, false, false, false, false, false, false, false],
   _qAfter: [false, false, false, false, false, false, false, false],
+  _questCap: null, _questEmits: null, _questEmitN: 0,
   _mc: null,
 
   /* ---------- module presence (warn-missing list) ---------- */
@@ -284,18 +285,20 @@ DP.Game = {
     var maxT = Math.max(minT, m - 1);
     var r = null;
     if (this.mods.board && typeof DP.Board.spawn === 'function') {
-      try { r = DP.Board.spawn(this.board, minT, maxT, Math.random); } catch (e) { r = null; }
+      /* 5th arg lets Board apply the luckyChance upgrade on top of canon 5% */
+      var lc = Math.min(1, 0.05 + 0.015 * this._upgradeLevel('luckyChance'));
+      try { r = DP.Board.spawn(this.board, minT, maxT, Math.random, lc); } catch (e) { r = null; }
     }
     if (!r || !isFinite(r.idx)) r = this._fbSpawn(this.board, minT, maxT);
     if (!r || !isFinite(r.idx)) return false;                 /* board full */
     var cell = this.board.cells[r.idx];
     if (!cell) return false;
-    /* lucky rain from the wheel forces lucky; luckyChance upgrade adds rolls */
-    if (this.luckyRain > 0) { this.luckyRain--; cell.lucky = true; }
-    else if (!cell.lucky) {
-      var ll = this._upgradeLevel('luckyChance');
-      if (ll > 0 && Math.random() < 0.015 * ll) cell.lucky = true;
-    }
+    /* lucky rain from the wheel forces lucky (module counter first, ours as fallback) */
+    var rain = false;
+    if (this.mods.wheel && typeof DP.Wheel.takeLucky === 'function') {
+      try { rain = DP.Wheel.takeLucky(this.wheelState) === true; } catch (e) { rain = false; }
+    } else if (this.luckyRain > 0) { this.luckyRain--; rain = true; }
+    if (rain) cell.lucky = true;
     DP.Events.emit('spawn', { idx: r.idx, tier: cell.tier, lucky: !!cell.lucky });
     this._boardDirty = true;
     return true;
@@ -342,7 +345,7 @@ DP.Game = {
     if (n <= 0 || !this.board) return;
     var targets = null;
     if (this.mods.board && typeof DP.Board.chainTargets === 'function') {
-      try { targets = DP.Board.chainTargets(this.board, n, Math.random); } catch (e) { targets = null; }
+      try { targets = DP.Board.chainTargets(this.board, n, Math.random, srcIdx); } catch (e) { targets = null; }
     }
     if (!targets || !targets.length) targets = this._fbChainTargets(this.board, n, srcIdx);
     if (!targets || !targets.length) return;
@@ -369,8 +372,9 @@ DP.Game = {
   },
 
   dragMove: function (idx, sx, sy) {
-    if (this.mods.render3d && typeof DP.Render3D.dragMove === 'function') {
-      try { DP.Render3D.dragMove(idx, sx, sy); } catch (e) {}
+    if (this.mods.render3d) {
+      if (typeof DP.Render3D.setDragTarget === 'function') { try { DP.Render3D.setDragTarget(idx); } catch (e) {} }
+      if (typeof DP.Render3D.dragMove === 'function') { try { DP.Render3D.dragMove(idx, sx, sy); } catch (e) {} }
     }
   },
 
@@ -548,8 +552,8 @@ DP.Game = {
       try { can = DP.Wheel.canSpin(this.wheelState, this.nowMs) !== false; } catch (e) { can = true; }
       if (!can) { this._sfx('fail'); return null; }
     }
-    var res = null;
-    try { res = DP.Wheel.spin(this.wheelState, Math.random); } catch (e) { res = null; }
+    var res = null, self = this;
+    try { res = DP.Wheel.spin(this.wheelState, Math.random, function () { return self.incomePerSec(); }, this.nowMs); } catch (e) { res = null; }
     if (!res) return null;
     this._applyWheel(res);
     return res;
@@ -590,24 +594,28 @@ DP.Game = {
       sector = DP.Wheel.SECTORS[sector];
     }
     var kind = this._sectorKind(sector);
-    var amt, ok;
-    if (kind === 'jackpot') {
-      amt = Math.round(this.incomePerSec() * 120);   /* 120s of income */
-      if (!(amt > 0)) amt = 100;                     /* pity floor on empty board */
-      this._gain(amt);
-      this._fxLabel(-1, 'JACKPOT +' + this.fmt(amt), '#ffd700', 22);
-      this._sfx('jackpot');
-      this._ui('toast', 'JACKPOT! +' + this.fmt(amt));
+    var modBoost = this.mods.wheel && typeof DP.Wheel.boostMult === 'function';
+    var modLucky = this.mods.wheel && typeof DP.Wheel.takeLucky === 'function';
+    if (isFinite(res.coins) && res.coins > 0) {
+      /* the wheel priced this sector itself (coins_small/medium, jackpot floors) */
+      this._gain(res.coins);
+      this._fxLabel(-1, (kind === 'jackpot' ? 'JACKPOT +' : '+') + this.fmt(res.coins), '#ffd700', kind === 'jackpot' ? 22 : 16);
+      if (kind === 'jackpot') {
+        this._sfx('jackpot');
+        if (this.mods.fx) { try { DP.FX.burst('jackpot', 0, 0, { tier: 5 }); } catch (e) {} }
+        this._ui('toast', 'JACKPOT! +' + this.fmt(res.coins));
+      } else this._sfx('coin');
     } else if (kind === 'income') {
-      this.buffT = 30;                                /* income ×2 for 30s */
+      /* wheel module tracks its own boostUntil; buffT is the no-module fallback */
+      if (!modBoost) this.buffT = Math.max(this.buffT, 30);
       this._sfx('lucky');
       this._ui('toast', 'INCOME ×2 FOR 30s!');
     } else if (kind === 'lucky') {
-      this.luckyRain = 5;                             /* next 5 spawns lucky */
+      if (!modLucky) this.luckyRain = 5;             /* next 5 spawns lucky */
       this._sfx('lucky');
       this._ui('toast', 'LUCKY RAIN! 5 GOLD CUBES');
     } else if (kind === 'merge') {
-      ok = this._mergeRandomPair();                   /* ONE random pair merges up */
+      var ok = this._mergeRandomPair();              /* ONE random pair merges up */
       this._sfx(ok ? 'quest' : 'fail');
       if (ok) this._ui('toast', 'FREE MERGE!');
     } else if (kind === 'quest') {
@@ -617,8 +625,9 @@ DP.Game = {
     } else if (kind === 'dud') {
       this._sfx('fail');
       this._ui('toast', res.nearMiss ? 'SO CLOSE!' : 'Nothing…');
-    } else {
-      amt = this._sectorCoins(sector);
+    } else if (kind === 'coins') {
+      /* fallback: wheel module returned an unpriced coin sector */
+      var amt = this._sectorCoins(sector);
       this._gain(amt);
       this._fxLabel(-1, '+' + this.fmt(amt), '#ffd700', 16);
       this._sfx('coin');
@@ -787,16 +796,20 @@ DP.Game = {
       if (n > 0) { total += n; applied.push(n); }
     }
     if (total > 0) { this._gain(total); this._sfx('quest'); }
-    /* all claimed → rotate in a fresh set so the strip never dies */
+    /* every slot freed by claims → rotate a fresh set in so the strip never dies */
     var arr = this._questList();
-    if (arr && arr.length === 0) this.rerollQuests();
+    if (arr && arr.length) {
+      var allFree = true, k;
+      for (k = 0; k < arr.length; k++) if (arr[k]) { allFree = false; break; }
+      if (allFree) this.rerollQuests();
+    }
     return applied;
   },
 
   rerollQuests: function () {
     if (!this.mods.quests || typeof DP.Quests.reroll !== 'function') return false;
     var s = this.state;
-    var prog = { tier: s.maxTierReached || 1, lifetime: s.lifetime || 0, coins: s.coins || 0 };
+    var prog = Math.max(1, Math.floor(s.maxTierReached || 1));   /* numeric progression level */
     var seed = (Math.floor(this.nowMs) ^ ((s.ascensions || 0) * 7919)) & 0x7fffffff;
     try { DP.Quests.reroll(this.questState, seed, prog); return true; } catch (e) { return false; }
   },
@@ -818,6 +831,14 @@ DP.Game = {
     if (this._questHook) { try { DP.Events.off('*', this._questHook); } catch (e) {} this._questHook = null; }
     if (!this.mods.quests) return;
     var self = this;
+    /* capture 'quest' emissions so we never double-emit a module's own events */
+    if (!this._questCap) {
+      this._questEmits = [];
+      this._questCap = function (d) {
+        if (self._questEmits && self._questEmitN < 8) self._questEmits[self._questEmitN++] = d && d.id;
+      };
+      DP.Events.on('quest', this._questCap);
+    }
     this._questHook = function (name, data) { self._questEvent(name, data); };
     DP.Events.on('*', this._questHook);
   },
@@ -826,26 +847,30 @@ DP.Game = {
     if (this._questBusy || !this.mods.quests || !this.questState) return;
     if (typeof DP.Quests.onEvent !== 'function') return;
     var arr = this._questList();
-    var b = this._qBefore, a = this._qAfter;
+    var b = this._qBefore;
     var n = 0, i, q;
     if (arr) {
       n = Math.min(arr.length, 8);
-      for (i = 0; i < n; i++) { q = arr[i]; b[i] = this._questDone(q); }
+      for (i = 0; i < n; i++) b[i] = this._questDone(arr[i]);
     }
+    this._questEmitN = 0;                       /* window: capture module-emitted quest events */
     this._questBusy = true;
     try { DP.Quests.onEvent(this.questState, name, data); }
     catch (e) { /* quest logic must never break the game loop */ }
     finally { this._questBusy = false; }
-    if (arr) {                                   /* re-emit completions as quest events */
+    var emittedN = this._questEmitN, emitted = this._questEmits;
+    this._questEmits = null;                   /* stop capturing before our own re-emits */
+    if (arr) {                                 /* re-emit completions the module didn't announce */
       for (i = 0; i < n; i++) {
         q = arr[i];
-        a[i] = this._questDone(q);
-        if (a[i] && !b[i]) {
-          DP.Events.emit('quest', { id: (q && q.id !== undefined) ? q.id : i, done: true });
-          this._sfx('quest');
+        if (this._questDone(q) && !b[i]) {
+          var qid = (q && q.id !== undefined) ? q.id : i, seen = false, j;
+          for (j = 0; j < emittedN; j++) if (emitted[j] === qid) { seen = true; break; }
+          if (!seen) { DP.Events.emit('quest', { id: qid, done: true }); this._sfx('quest'); }
         }
       }
     }
+    this._questEmits = emitted;                /* re-arm the capture for the next event */
   },
 
   /* ---------- UI plumbing ---------- */
@@ -1026,7 +1051,7 @@ DP.Game = {
     var s = this.state;
     var gain = 0;
     if (this.mods.core && typeof DP.Core.offlineGain === 'function') {
-      try { gain = DP.Core.offlineGain(s, this.nowMs); } catch (e) { gain = 0; }
+      try { gain = DP.Core.offlineGain(s, this.nowMs, this.incomePerSec()); } catch (e) { gain = 0; }
     }
     if (!(gain > 0) || !isFinite(gain)) gain = this._fbOfflineGain();
     s.lastSeen = this.nowMs;
@@ -1099,7 +1124,11 @@ DP.Game = {
 
   incomePerSec: function () {
     if (!this.board) return 0;
-    return this.totalBoardValue() * 0.05 * this.incomeMult() * (this.buffT > 0 ? 2 : 1);
+    var boost = 1;
+    if (this.mods.wheel && typeof DP.Wheel.boostMult === 'function') {
+      try { boost = DP.Wheel.boostMult(this.wheelState, this.nowMs); if (!(boost >= 1)) boost = 1; } catch (e) { boost = 1; }
+    } else if (this.buffT > 0) boost = 2;              /* no-module fallback buff */
+    return this.totalBoardValue() * 0.05 * this.incomeMult() * boost;
   },
 
   comboMultNow: function () {
@@ -1165,19 +1194,16 @@ DP.Game = {
   _fxPop: function (idx, tier, value, lucky, chained) {
     if (!this.mods.fx) return;
     var w = this._cellWorld(idx), wx = w.x, wz = w.z;
-    try { DP.FX.burst('coins', wx, wz, { tier: tier, lucky: lucky, value: value }); } catch (e) {}
+    try { DP.FX.burst(lucky ? 'lucky' : 'pop', wx, wz, { tier: tier, lucky: lucky, value: value }); } catch (e) {}
     if (!chained) {
       try { DP.FX.label(wx, wz, '+' + this.fmt(value), lucky ? '#ffd700' : this._tierColor(tier), lucky ? 20 : 14); } catch (e) {}
     }
-    if (lucky) { try { DP.FX.burst('confetti', wx, wz, { lucky: true }); } catch (e) {} }
-    if (tier >= 8) { try { DP.FX.burst('shockwave', wx, wz, { tier: tier }); } catch (e) {} }
   },
 
   _fxMerge: function (idx, tier) {
     if (!this.mods.fx) return;
     var w = this._cellWorld(idx), wx = w.x, wz = w.z;
-    try { DP.FX.burst('spark', wx, wz, { tier: tier }); } catch (e) {}
-    if (tier >= 5) { try { DP.FX.burst('shockwave', wx, wz, { tier: tier }); } catch (e) {} }
+    try { DP.FX.burst('merge', wx, wz, { tier: tier }); } catch (e) {}
   },
 
   _fxLabel: function (idx, text, color, size) {
@@ -1188,16 +1214,12 @@ DP.Game = {
   },
 
   _lightning: function (a, b) {
-    if (this.mods.render3d) {
-      var R = DP.Render3D, names = ['lightning', 'chainLightning', 'bolt', 'chainFx'], i;
-      for (i = 0; i < names.length; i++) {
-        if (typeof R[names[i]] === 'function') { try { R[names[i]](a, b); return; } catch (e) {} }
-      }
-    }
+    /* render3d.js self-subscribes to 'pop' events and draws the jagged bolts;
+       we add the FX chain particle burst midway between the two cells */
     if (this.mods.fx && typeof DP.FX.burst === 'function') {
       var wa = this._cellWorld(a), ax = wa.x, az = wa.z;
       var wb = this._cellWorld(b);
-      try { DP.FX.burst('spark', (ax + wb.x) / 2, (az + wb.z) / 2, { chain: true }); } catch (e) {}
+      try { DP.FX.burst('chain', (ax + wb.x) / 2, (az + wb.z) / 2, { a: a, b: b }); } catch (e) {}
     }
   },
 
